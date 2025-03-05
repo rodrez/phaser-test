@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
+import { PlayerSystem } from '../systems/Player';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -15,6 +16,33 @@ export class Game extends Scene {
     mapCenterLon = -0.09;
     mapZoom = 17; // Zoom level that shows ~600m
 
+    // Radius in meters, flags will have 500m radius
+    navigationRadius = 600; 
+
+    // Player related properties
+    player!: Phaser.Physics.Arcade.Sprite;
+    playerSystem!: PlayerSystem;
+    
+    // Entities group (make sure to use a physics group if needed)
+    entitiesGroup!: Phaser.Physics.Arcade.Group;
+
+    // Optional properties for flag-based positioning
+    fromFlag?: boolean;
+    flagData?: { x?: number; y?: number };
+
+    // Player stats
+    playerStats!: {
+        health: number;
+        maxHealth: number;
+        level: number;
+        xp: number;
+        xpToNextLevel: number;
+        gold: number;
+        inventory: any[];
+        equipped: any;
+        flags: any[];
+    };
+
     constructor() {
         super('Game');
     }
@@ -26,18 +54,19 @@ export class Game extends Scene {
     create() {
         this.camera = this.cameras.main;
 
+        // Initialize the entities group (using physics group for player collision)
+        this.entitiesGroup = this.physics.add.group();
+
         // Create container for game objects
         this.mapGroup = this.add.container(0, 0);
 
         // Create the map (with overlay built-in)
         this.createLeafletMap();
         
-        // No need for separate addMapOverlay() call
-        
         // Add overlay message
         this.msg_text = this.add.text(512, 384, 'Leaflet Map View\nClick to continue', {
             fontFamily: 'Arial Black',
-            fontSize: 32,
+            fontSize: '32px',
             color: '#ffffff',
             stroke: '#000000',
             strokeThickness: 5,
@@ -46,10 +75,22 @@ export class Game extends Scene {
         this.msg_text.setOrigin(0.5);
         this.msg_text.setScrollFactor(0);
 
+        // Set up a one-time click handler to remove the map and switch scenes
         this.input.once('pointerdown', () => {
             this.destroyLeafletMap();
             this.scene.start('GameOver');
         });
+
+        // Initialize player stats
+        this.initPlayerStats();
+
+        // Initialize the player system
+        this.playerSystem = new PlayerSystem(this);
+        // Create the player (this also sets this.player in the scene)
+        this.player = this.playerSystem.createPlayer();
+
+        // Optionally set up input for player (delegated to the system)
+        this.playerSystem.setupInput();
     }
 
     createLeafletMap() {
@@ -59,7 +100,7 @@ export class Game extends Scene {
         
         // Get the canvas element
         const canvas = document.querySelector('canvas');
-        let canvasRect = null;
+        let canvasRect: DOMRect | null = null;
         
         if (canvas) {
             // Get the canvas position
@@ -94,13 +135,13 @@ export class Game extends Scene {
         // Initialize the Leaflet map
         this.leafletMap = L.map(this.mapElement, {
             attributionControl: true,
-            zoomControl: false, // Disable zoom controls
-            dragging: false,    // Disable dragging
-            touchZoom: false,   // Disable touch zoom
-            scrollWheelZoom: false, // Disable scroll zoom
-            doubleClickZoom: false, // Disable double click zoom
-            boxZoom: false,     // Disable box zoom
-            tap: false          // Disable tap handler
+            zoomControl: false,    // Disable zoom controls
+            dragging: false,       // Disable dragging
+            touchZoom: false,      // Disable touch zoom
+            scrollWheelZoom: false,// Disable scroll zoom
+            doubleClickZoom: false,// Disable double click zoom
+            boxZoom: false,        // Disable box zoom
+            tap: false             // Disable tap handler
         }).setView(
             [this.mapCenterLat, this.mapCenterLon], 
             this.mapZoom
@@ -119,7 +160,7 @@ export class Game extends Scene {
         overlay.style.width = '100%';
         overlay.style.height = '100%';
         overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'; // White with 70% opacity
-        overlay.style.zIndex = '1000'; // Make sure it's on top of the map tiles but below Phaser
+        overlay.style.zIndex = '1000'; // On top of map tiles but below Phaser
         this.mapElement.appendChild(overlay);
         
         // Force a resize/redraw of the map to ensure it fills the container
@@ -131,12 +172,40 @@ export class Game extends Scene {
     destroyLeafletMap() {
         if (this.leafletMap) {
             this.leafletMap.remove();
-            this.leafletMap = null;
+            this.leafletMap = null as any;
         }
         
         if (this.mapElement && this.mapElement.parentNode) {
             this.mapElement.parentNode.removeChild(this.mapElement);
-            this.mapElement = null;
+            this.mapElement = null as any;
         }
+    }
+
+    update(time: number, delta: number): void {
+        if (this.player && this.player.active) {
+            // Update player physics (stubbed in PlayerSystem)
+            this.playerSystem.updatePlayerPhysics(delta);
+
+            // Handle player movement
+            this.playerSystem.handlePlayerMovement();
+        }
+    }
+
+    /**
+     * Initialize player stats with default values
+     */
+    initPlayerStats() {
+        // Default player stats - can be modified later
+        this.playerStats = {
+            health: 100,
+            maxHealth: 100,
+            level: 1,
+            xp: 0,
+            xpToNextLevel: 100,
+            gold: 0,
+            inventory: [],
+            equipped: {},
+            flags: []
+        };
     }
 }
