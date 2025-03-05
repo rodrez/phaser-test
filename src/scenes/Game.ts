@@ -29,12 +29,11 @@ export class Game extends Scene {
         // Create container for game objects
         this.mapGroup = this.add.container(0, 0);
 
-        // Create the map
+        // Create the map (with overlay built-in)
         this.createLeafletMap();
         
-        // Add semi-transparent white overlay
-        this.addMapOverlay();
-
+        // No need for separate addMapOverlay() call
+        
         // Add overlay message
         this.msg_text = this.add.text(512, 384, 'Leaflet Map View\nClick to continue', {
             fontFamily: 'Arial Black',
@@ -51,28 +50,6 @@ export class Game extends Scene {
             this.destroyLeafletMap();
             this.scene.start('GameOver');
         });
-    }
-
-    addMapOverlay() {
-        // Get the game dimensions
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Create a white semi-transparent rectangle covering the entire screen
-        this.mapOverlay = this.add.rectangle(
-            width / 2,
-            height / 2,
-            width * 3, // Wider than the screen
-            height * 1.5, // Taller than the screen
-            0xffffff,  // White color
-            0.7        // 40% opacity (adjust as needed)
-        );
-        
-        // Make sure it stays fixed to the camera
-        this.mapOverlay.setScrollFactor(0);
-        
-        // Add it to the map group
-        this.mapGroup.add(this.mapOverlay);
     }
 
     createLeafletMap() {
@@ -114,7 +91,7 @@ export class Game extends Scene {
             document.body.appendChild(this.mapElement);
         }
 
-        // Rest of the map initialization...
+        // Initialize the Leaflet map
         this.leafletMap = L.map(this.mapElement, {
             attributionControl: true,
             zoomControl: false, // Disable zoom controls
@@ -133,6 +110,17 @@ export class Game extends Scene {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(this.leafletMap);
+        
+        // Add semi-transparent overlay directly to the map element
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.7)'; // White with 70% opacity
+        overlay.style.zIndex = '1000'; // Make sure it's on top of the map tiles but below Phaser
+        this.mapElement.appendChild(overlay);
         
         // Force a resize/redraw of the map to ensure it fills the container
         setTimeout(() => {
