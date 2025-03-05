@@ -1,0 +1,47 @@
+Flags
+Flags are one of the most important things in the world of Parallel Kingdom. Flags have many different uses, mainly to mark your territory, to travel from place to place, and to allow you to walk somewhere.
+
+To build a flag, you need 3 Leather and 3 Wood. Go to Menu > Create > Build > Flag. Once your flag is built, you now have a few options:
+
+Flags can be randomly attacked by monsters, you will see a marked location on your compass if the flag attack is close enough to a city. After killing all of the monsters that are attacking your flag you will receive a reward notification and the item will be placed into your inventory.
+
+The coloured circle that is created when you place a flag has a 500m radius (600m to the edge of the dotted circle).
+
+Flag Permissions
+There are 3 different stages of flags. There is normal, public, and private. When flags are set on "Normal", they require a write of passage to be traveled on. When flags are set on "Public", anybody can visit them, for whatever gold price the owner sets as their Public Flag Toll. When a flag is set on "Private", nobody but the owner can visit them.
+
+Public Flags are special, because when you have your flag set to Public, you will be able to get free gold for doing absolutely nothing! When your flags are set to Public, you get 5% bonus gold of the gold that is earned on your flags. Having public flags in a desirable hunting area can be very beneficial to you. The 5% gold bonus is not taken from the player's that hunt your land, but 5% of the amount of gold they earned is given to you. This bonus only applies on Public flags and Public Buoys, not on Roc Shrines, Guard Towers, or Kingdom Buildings. Also, the bonus gold is only earned when somebody else earns gold on your land, gold you earn on you public flags doesn't count.
+
+Upgrade to Hardened Flag
+To upgrade a flag to a hardened flag, it costs 2 Stone. When you upgrade a regular flag to a hardened flag, you gain a few different abilities. First of all, you can convert the hardened flag to a Kingdom Flag or City Flag. You can also convert the flag to a Guard Tower or a Roc Shrine, that is only if you have the required Country Manor upgrades.
+
+Some flags that you build might have different purposes than others. You might build some flags so that you can use them to travel. In that case, you might just leave the flag unhardened. You could build some flags to mark out your territory. You could go either way with that. You could harden your flag if it's an area with other flags, but you might not need to harden them if you are alone. The one time that it is very important to harden your flags is when you want to convert them to something other than a flag.
+
+Hardened Flags
+Hardened Flags are stronger than regular flags and can be converted into the following:
+
+City Flags: You can spend 100 Crystal and upgrade your Hardened Flag to a City Flag. You can only do this if your hardened flag is adjacent to a flag of the city that you are a member of.
+Kingdom Flags: You can spend 200 Kingdom Bricks and upgrade your Hardened Flag to a Kingdom Flag. Please be aware that you must have the Constructing Permission to create a Kingdom Flag. You can only upgarde your hardened flag to a Kingdom flag if your hardened flag is adjacent to a flag of your Kingdom.
+Roc Shrines: A Roc Shrine is a building that can be created by spending 10 Wood and 10 Stone on a Hardened Flag. To build a Roc Shrine, you need to have a Roc Chapel installed in your Country Manor. By default, when you create your Roc Chapel, you can build 1 Roc Shrine. To build more, you must upgrade your Roc Chapel. The purpose of a Roc Shrine is to mark a location so that you can return back to it again and again.
+Guard Towers: A Guard Tower is a building that can be created by spending 20 Wood and 20 Stone on a Hardened Flag. Once your Guard Tower is built, you can use Iron to upgrade its level. To create a Guard Tower, you need to have a Drafting Room installed in your Country Manor. When you first build your Drafting Room, you are able to build 1 Guard Tower. To unlock more Guard Towers, you must upgrade your Drawing Room. The purpose of a Guard Tower is to not only mark a location, but also to defend it if need be. A Guard Tower can shoot projectiles at nearby enemies.
+Flag Placement
+Location, location, location. That saying applies with flags. Wherever you are standing when you build a flag is where the flag will be built. Make sure that you are standing in the exact spot that you want the flag. If you are surrounded by open space in your circle, and you build a flag in the middle of it, it should fill up the circle. There will be a little bit of room on the edges that it will still be empty, but the majority of your circle will be taken up by your flag's smaller circle. If you are building your flags when surrounded by other flags, your flag will not be a full circle. It will have taken some of the land of the other flags near it, but only some. It will assume the shape of the land removed from other flags. The land removed from other flags is automatically generated.
+
+Please also understand that if there are any gaps in between flags, (white space) somebody can come in and build a flag, stealing some of your hard-earned room. Be very careful when flagging large areas to make sure that all of the holes are filled in.
+
+Traveling
+Flags are great for marking territory, but they also allow us to move about the Parallel Kingdom world. When you build a flag, you have an option to visit it for 2 Roc Feathers. By visiting different flags throughout PK, you can travel throughout the world. Some flags have a toll for visiting them. Public flags will always have some toll, set by the owner. The toll on normal flags that you have passage to are determined by the owner for you specifically. Be warned, there are some flags that might have large tolls and aren't worth it to travel on. As a general rule of thumb, avoid any flag with a toll over 100 gold. (Unless you specifically need to access this flag or there isn't any better option)
+
+Abandoned Flags
+When players become inactive after not logging on for 2 weeks, their flags are still considered "Active." Once a player has not logged on for 1 month, then their flags become "Abandoned." When a player's flags are abandoned, they can be taken over by anybody with the required materials. When a flag is abandoned, it will look bent over. For both unhardened and hardened flags, you can spend 3 Leather and 3 Wood to immediately convert an abandoned flag to your own flag. If it is unhardend before, it will still be unhardened. But if you take over an abandoned hardened flag, you will have a hardened flag. Also, buoys work the same way. To take over an abandoned buoy, you need to spend 5 Wood and 3 Crude Oil. Abandoned Roc Shrines and Guard Towers CANNOT be taken over. Finally, when you take over an abandoned flag, the owner is not notified and your are not made an enemy with the owner.
+
+Destroying Your Flags
+If you no longer want a flag of yours, you can destroy it, leaving some open land in the place of it. If the flag that you destroy is in between other flags, the area of the surrounding flags will expand, taking some of the room that your flag used to occupy. When you destroy an unhardened flag, you will get 1 Wood and 1 Leather back. When you destroy a hardened flag, you will get 1 Wood, 1 Leather, and 1 Stone Back. When you destroy a Roc Shrine, you will get 5 Wood and 5 Stone back. When you destroy a Guard Tower, you will get 10 Wood and 10 Stone back. (And possibly Iron, if you have upgraded the tower level)
+
+Destroying the Flags of Others
+If you are one that likes burning and destroying things, fear not. All flags can be attacked and destroyed. You may want to destroy somebody's flag because it's in your way, or maybe because you want more land. There are times people destroy flags of others just for fun. It doesn't matter what your purpose is, you go about it the same way. Both hardened and unhardened flags have 200 HP. When buildings/structures go down to the halfway mark on their max HP, they can no longer be attacked and must be set on fire. Usually, you can do 100 damage to a flag in one attack. If not, you need to wait 22 hours until you can attack it again. Both hardened and unhardened flags are similar up until this point. If you set an unhardened flag on fire, it will burn to the ground in 15 seconds. But if you set a hardened flag on fire, it will take a full day (25 hours) to burn down. With hardened flags, you have a lesser chance of it being destoyed because it takes longer to burn. To set a flag on fire, it costs 20 Crude Oil.
+
+But before you attack that flag, you might want to consider the possible consequences. You will become an enemy of the flag's owner when you attack it, so you may wish to "view profile" to see who you're dealing with, or "send message" to request that the flag be removed, or "request passage" if you are just trying to get through (it's a good idea to "view profile" when requesting passage, and "send message" introducing yourself, saying where you're going and why.)
+
+Once a flag burns down, it is gone. It will leave an open space, with room to build a new flag. If you want to prevent your flags from being burnt to the ground, you should harden them. It will give you a chance to possibly get to them and repair them before they are destroyed.
+
