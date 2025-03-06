@@ -1,347 +1,341 @@
-import { Scene, GameObjects } from 'phaser';
+import { Scene } from 'phaser';
+import { SkillManager } from '../systems/skills/SkillManager';
+import { createAllSkills } from '../systems/skills/index';
+import { SkillsUI } from '../systems/skills/SkillsUI';
 import { Game } from './Game';
 
-interface CharacterSceneData {
-    game: Game;
-    playerData: {
-        health: number;
-        maxHealth: number;
-        level: number;
-        xp: number;
-        xpToNextLevel: number;
-        gold: number;
-        // Add any additional stats we want to display
-        strength?: number;
-        dexterity?: number;
-        intelligence?: number;
-        vitality?: number;
-    };
-}
-
+/**
+ * Scene for displaying and managing character information, including skills.
+ */
 export class CharacterScene extends Scene {
-    // Reference to the main game scene
+    /** Skill manager for handling character skills */
+    private skillManager: SkillManager;
+    
+    /** UI for displaying skills */
+    private skillsUI: SkillsUI;
+    
+    /** Main UI container */
+    private uiContainer: Phaser.GameObjects.Container;
+    
+    /** Character level */
+    private characterLevel: number = 1;
+    
+    /** Character name */
+    private characterName: string = 'Adventurer';
+    
+    /** Character stats */
+    private stats = {
+        health: 100,
+        mana: 50,
+        strength: 10,
+        agility: 10,
+        intelligence: 10,
+        stamina: 10
+    };
+    
+    /** Reference to main game scene */
     private gameScene: Game;
     
-    // Container for all character UI elements
-    private container: GameObjects.Container;
+    /** Whether to show skills tab on init */
+    private showSkillsTab: boolean = false;
     
-    // Background elements
-    private background: GameObjects.Rectangle;
-    private statsPanel: GameObjects.Rectangle;
-    private attributesPanel: GameObjects.Rectangle;
-    private progressionPanel: GameObjects.Rectangle;
-    
-    // Title and headers
-    private titleText: GameObjects.Text;
-    private statsText: GameObjects.Text;
-    private attributesText: GameObjects.Text;
-    private progressionText: GameObjects.Text;
-    private closeButton: GameObjects.Text;
-    
-    // Stats display elements
-    private healthText: GameObjects.Text;
-    private healthBar: GameObjects.Graphics;
-    private levelText: GameObjects.Text;
-    private xpText: GameObjects.Text;
-    private xpBar: GameObjects.Graphics;
-    private goldText: GameObjects.Text;
-    
-    // Attributes display elements
-    private strengthText: GameObjects.Text;
-    private dexterityText: GameObjects.Text;
-    private intelligenceText: GameObjects.Text;
-    private vitalityText: GameObjects.Text;
-    
-    // Player data
-    private playerData: CharacterSceneData['playerData'];
-    
+    /**
+     * Creates a new character scene.
+     */
     constructor() {
-        super('CharacterScene');
+        super({ key: 'CharacterScene' });
     }
     
-    init(data: CharacterSceneData) {
+    /**
+     * Initialize scene data
+     */
+    init(data: any) {
+        // Get game scene reference
         this.gameScene = data.game;
-        this.playerData = data.playerData;
-    }
-    
-    create() {
-        // Get game dimensions
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
         
-        // Create semi-transparent background
-        this.background = this.add.rectangle(0, 0, width, height, 0x000000, 0.7)
-            .setOrigin(0)
-            .setInteractive()
-            .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-                // Only close if clicking directly on the background (not UI elements)
-                if (pointer.downElement === this.background) {
-                    this.closeCharacter();
-                }
-            });
-            
-        // Create container for all UI elements
-        this.container = this.add.container(0, 0);
-        
-        // Create the panels
-        this.createPanels();
-        
-        // Create headers
-        this.createHeaders();
-        
-        // Create the content for each panel
-        this.createStatsPanel();
-        this.createAttributesPanel();
-        this.createProgressionPanel();
-        
-        // Setup keyboard handlers (ESC to close)
-        this.setupKeyboardHandlers();
-    }
-    
-    private createPanels() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Stats panel (top-left)
-        this.statsPanel = this.add.rectangle(width * 0.25, height * 0.3, width * 0.45, height * 0.25, 0x333333, 0.9)
-            .setOrigin(0.5)
-            .setStrokeStyle(2, 0xffffff);
-        this.container.add(this.statsPanel);
-        
-        // Attributes panel (top-right)
-        this.attributesPanel = this.add.rectangle(width * 0.75, height * 0.3, width * 0.45, height * 0.25, 0x333333, 0.9)
-            .setOrigin(0.5)
-            .setStrokeStyle(2, 0xffffff);
-        this.container.add(this.attributesPanel);
-        
-        // Progression panel (bottom)
-        this.progressionPanel = this.add.rectangle(width * 0.5, height * 0.65, width * 0.9, height * 0.3, 0x333333, 0.9)
-            .setOrigin(0.5)
-            .setStrokeStyle(2, 0xffffff);
-        this.container.add(this.progressionPanel);
-    }
-    
-    private createHeaders() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Main title
-        this.titleText = this.add.text(width / 2, height * 0.1, 'CHARACTER', {
-            fontFamily: 'Arial Black',
-            fontSize: '32px',
-            color: '#ffffff',
-            align: 'center'
-        }).setOrigin(0.5);
-        this.container.add(this.titleText);
-        
-        // Close button
-        this.closeButton = this.add.text(width * 0.9, height * 0.1, 'X', {
-            fontFamily: 'Arial',
-            fontSize: '24px',
-            color: '#ffffff'
-        })
-            .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true })
-            .on('pointerdown', () => this.closeCharacter())
-            .on('pointerover', () => this.closeButton.setStyle({ color: '#ff0000' }))
-            .on('pointerout', () => this.closeButton.setStyle({ color: '#ffffff' }));
-        this.container.add(this.closeButton);
-        
-        // Stats header
-        this.statsText = this.add.text(width * 0.25, height * 0.18, 'STATS', {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#ffff00',
-            align: 'center'
-        }).setOrigin(0.5);
-        this.container.add(this.statsText);
-        
-        // Attributes header
-        this.attributesText = this.add.text(width * 0.75, height * 0.18, 'ATTRIBUTES', {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#ffff00',
-            align: 'center'
-        }).setOrigin(0.5);
-        this.container.add(this.attributesText);
-        
-        // Progression header
-        this.progressionText = this.add.text(width * 0.5, height * 0.5, 'PROGRESSION', {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#ffff00',
-            align: 'center'
-        }).setOrigin(0.5);
-        this.container.add(this.progressionText);
-    }
-    
-    private createStatsPanel() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Health info
-        this.healthText = this.add.text(width * 0.15, height * 0.25, `Health: ${this.playerData.health}/${this.playerData.maxHealth}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.healthText);
-        
-        // Health bar
-        this.healthBar = this.add.graphics();
-        this.drawHealthBar();
-        this.container.add(this.healthBar);
-        
-        // Gold info
-        this.goldText = this.add.text(width * 0.15, height * 0.35, `Gold: ${this.playerData.gold}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffdd00'
-        });
-        this.container.add(this.goldText);
-    }
-    
-    private createAttributesPanel() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Default values if not provided
-        const strength = this.playerData.strength || 10;
-        const dexterity = this.playerData.dexterity || 10;
-        const intelligence = this.playerData.intelligence || 10;
-        const vitality = this.playerData.vitality || 10;
-        
-        // Strength
-        this.strengthText = this.add.text(width * 0.65, height * 0.23, `Strength: ${strength}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.strengthText);
-        
-        // Dexterity
-        this.dexterityText = this.add.text(width * 0.65, height * 0.27, `Dexterity: ${dexterity}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.dexterityText);
-        
-        // Intelligence
-        this.intelligenceText = this.add.text(width * 0.65, height * 0.31, `Intelligence: ${intelligence}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.intelligenceText);
-        
-        // Vitality
-        this.vitalityText = this.add.text(width * 0.65, height * 0.35, `Vitality: ${vitality}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.vitalityText);
-    }
-    
-    private createProgressionPanel() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        
-        // Level info
-        this.levelText = this.add.text(width * 0.5, height * 0.55, `Level: ${this.playerData.level}`, {
-            fontFamily: 'Arial',
-            fontSize: '20px',
-            color: '#ffffff',
-            align: 'center'
-        }).setOrigin(0.5);
-        this.container.add(this.levelText);
-        
-        // XP info
-        this.xpText = this.add.text(width * 0.3, height * 0.6, `XP: ${this.playerData.xp}/${this.playerData.xpToNextLevel}`, {
-            fontFamily: 'Arial',
-            fontSize: '18px',
-            color: '#ffffff'
-        });
-        this.container.add(this.xpText);
-        
-        // XP bar
-        this.xpBar = this.add.graphics();
-        this.drawXpBar();
-        this.container.add(this.xpBar);
-    }
-    
-    private drawHealthBar() {
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-        const barWidth = 200;
-        const barHeight = 15;
-        const x = width * 0.15;
-        const y = height * 0.29;
-        
-        this.healthBar.clear();
-        
-        // Background
-        this.healthBar.fillStyle(0x666666);
-        this.healthBar.fillRect(x, y, barWidth, barHeight);
-        
-        // Calculate health percentage
-        const healthPercentage = this.playerData.health / this.playerData.maxHealth;
-        
-        // Health bar color based on health percentage
-        let healthColor = 0x00ff00; // Green
-        if (healthPercentage < 0.3) {
-            healthColor = 0xff0000; // Red for low health
-        } else if (healthPercentage < 0.6) {
-            healthColor = 0xffff00; // Yellow for medium health
+        // Get character data
+        if (data.playerData) {
+            this.characterLevel = data.playerData.level || 1;
+            this.stats.health = data.playerData.health || 100;
+            this.stats.strength = data.playerData.strength || 10;
+            this.stats.agility = data.playerData.dexterity || 10;
+            this.stats.intelligence = data.playerData.intelligence || 10;
+            this.stats.stamina = data.playerData.vitality || 10;
         }
         
-        // Fill
-        this.healthBar.fillStyle(healthColor);
-        this.healthBar.fillRect(x, y, barWidth * healthPercentage, barHeight);
-        
-        // Border
-        this.healthBar.lineStyle(2, 0xffffff);
-        this.healthBar.strokeRect(x, y, barWidth, barHeight);
+        // Check if we should show skills tab
+        this.showSkillsTab = data.showSkillsTab || false;
     }
     
-    private drawXpBar() {
+    /**
+     * Preload assets for the scene.
+     */
+    preload() {
+        // Load character UI assets
+        this.load.image('character_bg', 'assets/ui/character_bg.png');
+        this.load.image('button', 'assets/ui/button.png');
+        this.load.image('tab', 'assets/ui/tab.png');
+        
+        // Load character portrait placeholder
+        this.load.image('character_portrait', 'assets/ui/portrait_placeholder.png');
+    }
+    
+    /**
+     * Create scene elements.
+     */
+    create() {
+        // Use skill manager from the game scene if available
+        if (this.gameScene && this.gameScene.skillManager) {
+            this.skillManager = this.gameScene.skillManager;
+        } else {
+            // Create a new skill manager as fallback
+            this.skillManager = new SkillManager(this);
+            this.skillManager.initialize(10, createAllSkills());
+        }
+        
+        // Create the main UI container
+        this.uiContainer = this.add.container(0, 0);
+        
+        // Create UI elements
+        this.createBackground();
+        this.createCharacterInfo();
+        this.createNavigation();
+        
+        // Create the skills UI
+        this.skillsUI = new SkillsUI(this, this.skillManager);
+        
+        // Register event handlers
+        this.events.on('shutdown', this.onShutdown, this);
+        
+        // Show skills tab if requested
+        if (this.showSkillsTab) {
+            this.skillsUI.show();
+        }
+    }
+    
+    /**
+     * Creates the background for the scene.
+     */
+    private createBackground() {
+        // Add a background color
+        const bg = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x111111);
+        bg.setOrigin(0);
+        this.uiContainer.add(bg);
+        
+        // If we have a background image, use it instead
+        if (this.textures.exists('character_bg')) {
+            const bgImage = this.add.image(0, 0, 'character_bg');
+            bgImage.setOrigin(0);
+            bgImage.setDisplaySize(this.cameras.main.width, this.cameras.main.height);
+            this.uiContainer.add(bgImage);
+        }
+    }
+    
+    /**
+     * Creates character information display.
+     */
+    private createCharacterInfo() {
         const width = this.cameras.main.width;
         const height = this.cameras.main.height;
-        const barWidth = 400;
-        const barHeight = 20;
-        const x = width * 0.3;
-        const y = height * 0.65;
         
-        this.xpBar.clear();
+        // Container for character info
+        const infoContainer = this.add.container(width * 0.5, height * 0.2);
         
-        // Background
-        this.xpBar.fillStyle(0x666666);
-        this.xpBar.fillRect(x, y, barWidth, barHeight);
-        
-        // Calculate XP percentage
-        const xpPercentage = this.playerData.xp / this.playerData.xpToNextLevel;
-        
-        // Fill
-        this.xpBar.fillStyle(0x00aaff); // Blue for XP
-        this.xpBar.fillRect(x, y, barWidth * xpPercentage, barHeight);
-        
-        // Border
-        this.xpBar.lineStyle(2, 0xffffff);
-        this.xpBar.strokeRect(x, y, barWidth, barHeight);
-    }
-    
-    private setupKeyboardHandlers() {
-        // Add ESC key to close the inventory
-        this.input.keyboard?.on('keydown-ESC', () => {
-            this.closeCharacter();
+        // Character name
+        const nameText = this.add.text(0, -60, this.characterName, {
+            fontSize: '32px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF',
+            stroke: '#000000',
+            strokeThickness: 4
         });
+        nameText.setOrigin(0.5);
+        
+        // Character level
+        const levelText = this.add.text(0, -30, `Level ${this.characterLevel}`, {
+            fontSize: '24px',
+            fontFamily: 'Arial',
+            color: '#FFFF00',
+            stroke: '#000000',
+            strokeThickness: 3
+        });
+        levelText.setOrigin(0.5);
+        
+        // Character portrait
+        let portrait;
+        if (this.textures.exists('character_portrait')) {
+            portrait = this.add.image(-100, 40, 'character_portrait');
+            portrait.setDisplaySize(150, 150);
+        } else {
+            // Placeholder if no portrait exists
+            portrait = this.add.rectangle(-100, 40, 150, 150, 0x666666);
+        }
+        portrait.setOrigin(0.5);
+        
+        // Character stats
+        const statsContainer = this.add.container(50, 40);
+        
+        const statStyle = {
+            fontSize: '18px',
+            fontFamily: 'Arial',
+            color: '#FFFFFF'
+        };
+        
+        // Create stat text objects
+        const healthText = this.add.text(0, -50, `Health: ${this.stats.health}`, statStyle);
+        const manaText = this.add.text(0, -25, `Mana: ${this.stats.mana}`, statStyle);
+        const strengthText = this.add.text(0, 0, `Strength: ${this.stats.strength}`, statStyle);
+        const agilityText = this.add.text(0, 25, `Agility: ${this.stats.agility}`, statStyle);
+        const intelligenceText = this.add.text(0, 50, `Intelligence: ${this.stats.intelligence}`, statStyle);
+        const staminaText = this.add.text(0, 75, `Stamina: ${this.stats.stamina}`, statStyle);
+        
+        // Add stats to container
+        statsContainer.add([
+            healthText,
+            manaText,
+            strengthText,
+            agilityText,
+            intelligenceText,
+            staminaText
+        ]);
+        
+        // Add everything to the info container
+        infoContainer.add([
+            nameText,
+            levelText,
+            portrait,
+            statsContainer
+        ]);
+        
+        // Add the info container to the main UI container
+        this.uiContainer.add(infoContainer);
     }
     
-    private closeCharacter() {
-        // Resume the game scene
-        this.scene.resume('Game');
-        // Stop this scene
-        this.scene.stop();
+    /**
+     * Creates navigation buttons.
+     */
+    private createNavigation() {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Navigation container
+        const navContainer = this.add.container(width * 0.5, height * 0.85);
+        
+        // Create button style
+        const createButton = (x: number, text: string, callback: () => void) => {
+            const button = this.add.container(x, 0);
+            
+            // Button background
+            let buttonBg;
+            if (this.textures.exists('button')) {
+                buttonBg = this.add.image(0, 0, 'button');
+                buttonBg.setDisplaySize(200, 60);
+            } else {
+                buttonBg = this.add.rectangle(0, 0, 200, 60, 0x333333);
+                buttonBg.setStrokeStyle(2, 0x666666);
+            }
+            
+            // Button text
+            const buttonText = this.add.text(0, 0, text, {
+                fontSize: '24px',
+                fontFamily: 'Arial',
+                color: '#FFFFFF'
+            });
+            buttonText.setOrigin(0.5);
+            
+            // Add to button container
+            button.add([buttonBg, buttonText]);
+            
+            // Make button interactive
+            buttonBg.setInteractive({ useHandCursor: true });
+            buttonBg.on('pointerdown', callback);
+            buttonBg.on('pointerover', () => buttonText.setTint(0x00ffff));
+            buttonBg.on('pointerout', () => buttonText.clearTint());
+            
+            return button;
+        };
+        
+        // Create buttons
+        const skillsButton = createButton(-220, 'Skills', () => {
+            this.skillsUI.show();
+        });
+        
+        const inventoryButton = createButton(0, 'Inventory', () => {
+            // Show inventory (not implemented yet)
+            console.log('Inventory button clicked');
+        });
+        
+        const backButton = createButton(220, 'Back', () => {
+            // Return to main game scene
+            this.scene.stop();
+            
+            if (this.gameScene) {
+                this.gameScene.scene.resume();
+            } else {
+                this.scene.get('Game').scene.resume();
+            }
+        });
+        
+        // Add buttons to navigation container
+        navContainer.add([skillsButton, inventoryButton, backButton]);
+        
+        // Add navigation to UI container
+        this.uiContainer.add(navContainer);
+    }
+    
+    /**
+     * Updates character stats based on skills.
+     */
+    private updateStats() {
+        // Base stats
+        this.stats = {
+            health: 100,
+            mana: 50,
+            strength: 10,
+            agility: 10,
+            intelligence: 10,
+            stamina: 10
+        };
+        
+        // Apply skill effects to stats
+        // In a real game, you would pass the player object to applyAllSkillEffects
+        // and it would modify the player's stats directly
+        // For now, we'll update our simple stats object
+        
+        const learnedSkills = this.skillManager.getLearnedSkills();
+        for (const skill of learnedSkills) {
+            // Example implementation - actual effects would depend on skill system
+            if (skill.id === 'warrior') {
+                this.stats.health += skill.level * 20;
+                this.stats.strength += skill.level * 2;
+            } else if (skill.id === 'ranger') {
+                this.stats.agility += skill.level * 2;
+                this.stats.stamina += skill.level;
+            } else if (skill.id === 'druid') {
+                this.stats.intelligence += skill.level * 2;
+                this.stats.mana += skill.level * 15;
+            } else if (skill.id === 'ninja') {
+                this.stats.agility += skill.level * 3;
+                this.stats.strength += skill.level;
+            }
+        }
+    }
+    
+    /**
+     * Handles scene shutdown.
+     */
+    private onShutdown() {
+        // Clean up event listeners
+        this.events.off('shutdown', this.onShutdown, this);
+    }
+    
+    /**
+     * Updates the scene.
+     * @param time The current time
+     * @param delta The time since the last update
+     */
+    update(time: number, delta: number) {
+        // Update stats if needed
+        this.updateStats();
     }
 } 

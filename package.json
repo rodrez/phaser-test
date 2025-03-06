@@ -26,6 +26,7 @@
         "vite": "^5.3.1"
     },
     "dependencies": {
+        "@turf/turf": "^7.2.0",
         "leaflet": "^1.9.4",
         "phaser": "^3.88.2"
     }

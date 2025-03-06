@@ -146,10 +146,46 @@ export class PlayerSystem {
     }
 
     /**
-     * Stub for updating player physics; extend this as needed.
+     * Updates player physics and cleans up any ghost sprites.
      */
     updatePlayerPhysics(delta: number): void {
-        // Placeholder for any physics updates required for the player.
+        // Check for any ghost player sprites in the scene
+        if (this.player) {
+            // Ensure the player has the correct depth
+            this.player.setDepth(100);
+            
+            // Make sure there's only one player sprite active in the game
+            const allSprites = this.scene.children.list.filter(
+                obj => obj !== this.player && 
+                      obj.type === 'Sprite' && 
+                      (obj as Phaser.GameObjects.Sprite).texture.key === 'player'
+            );
+            
+            // Remove any ghost player sprites
+            allSprites.forEach(sprite => {
+                console.log('Removing ghost player sprite', sprite);
+                (sprite as Phaser.GameObjects.Sprite).destroy();
+            });
+            
+            // Also check entities group for duplicates
+            if ((this.scene as any).entitiesGroup) {
+                const duplicatesInGroup = (this.scene as any).entitiesGroup.getChildren().filter(
+                    (child: any) => child !== this.player && 
+                                   child.texture && 
+                                   child.texture.key === 'player'
+                );
+                
+                duplicatesInGroup.forEach((duplicate: any) => {
+                    console.log('Removing duplicate player from entities group', duplicate);
+                    duplicate.destroy();
+                });
+            }
+            
+            // Make sure entity has no body velocity
+            if (this.player.body) {
+                this.player.body.reset(this.player.x, this.player.y);
+            }
+        }
     }
 
     /**
@@ -202,8 +238,14 @@ export class PlayerSystem {
             moving = true;
         }
 
-        // Update player position directly
-        this.player.setPosition(newX, newY);
+        // Update player position directly if it has moved
+        if (newX !== currentX || newY !== currentY) {
+            // Clear any duplicate sprites at the old position before moving
+            this.player.setPosition(newX, newY);
+            
+            // Make sure player is always at the correct depth
+            this.player.setDepth(100);
+        }
         
         // Apply world bounds manually
         const bounds = (this.scene as any).physics.world.bounds;
@@ -263,7 +305,7 @@ export class PlayerSystem {
                 }
             }
         }
-
+        
         // Set to idle animation if not moving
         if (!moving && this.player.anims) {
             this.player.anims.play('player-idle', true);
@@ -271,6 +313,11 @@ export class PlayerSystem {
         
         // Reset velocity to prevent any physics from taking effect
         this.player.setVelocity(0, 0);
+        
+        // Reset acceleration if it's a dynamic body
+        if (this.player.body && 'acceleration' in this.player.body) {
+            (this.player.body as Phaser.Physics.Arcade.Body).acceleration.set(0, 0);
+        }
 
         // Update health bar position if it exists
         this.updateHealthBarPosition();

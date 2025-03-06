@@ -260,7 +260,34 @@ export class MenuScene extends Scene {
     }
     
     showSkills() {
-        this.showNotImplemented('Skills');
+        // Close the menu
+        this.closeMenu();
+        
+        // Get the Game scene
+        const gameScene = this.scene.get('Game') as any;
+        
+        // Access the game's skill manager
+        if (gameScene.skillManager) {
+            // Launch the character scene with the tab set to skills
+            this.scene.pause();
+            gameScene.scene.pause();
+            
+            // Pass a parameter to indicate we want to show the skills tab
+            gameScene.scene.launch('CharacterScene', { 
+                showSkillsTab: true,
+                game: gameScene,
+                playerData: {
+                    health: gameScene.playerStats.health,
+                    maxHealth: gameScene.playerStats.maxHealth,
+                    level: gameScene.playerStats.level,
+                    xp: gameScene.playerStats.xp,
+                    xpToNextLevel: gameScene.playerStats.xpToNextLevel,
+                    gold: gameScene.playerStats.gold
+                }
+            });
+        } else {
+            this.showNotImplemented('Skills system not initialized');
+        }
     }
     
     showLeaderboard() {

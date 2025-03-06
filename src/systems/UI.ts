@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { Game } from '../scenes/Game';
 
 export class UISystem {
     private scene: Scene;

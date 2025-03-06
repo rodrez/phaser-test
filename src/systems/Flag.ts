@@ -21,7 +21,7 @@ export class FlagSystem {
     private flagCircles: Map<string, L.Circle> = new Map();
     
     // Default flag radius (in meters)
-    readonly flagRadius: number = 500;
+    readonly flagRadius: number = 200;
     
     constructor(scene: Scene, mapSystem: MapSystem) {
         this.scene = scene;
@@ -52,7 +52,7 @@ export class FlagSystem {
             
             /* Ensure flag markers are above circles */
             .player-flag-marker, .flag-marker {
-                z-index: 600 !important;
+                z-index: 1000 !important; /* Increased from 600 to make it higher than player depth */
             }
             
             /* Specific styles for player flags vs other flags */
@@ -192,7 +192,7 @@ export class FlagSystem {
         const flagMarker = L.marker([flag.lat, flag.lon], { 
             icon: flagIcon,
             interactive: true,
-            zIndexOffset: 1000, // Increase z-index to ensure it's above the circle
+            zIndexOffset: 2000, // Increased from 1000 to ensure it's above the player (depth 100)
             pane: 'markerPane' // Use marker pane to ensure it's above the circle
         }).addTo(this.mapSystem.leafletMap);
         

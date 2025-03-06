@@ -8,6 +8,8 @@ import { FlagSystem } from '../systems/Flag';
 import { EnvironmentSystem } from '../systems/Environment';
 import { ItemSystem } from '../systems/Item';
 import { InventorySystem } from '../systems/Inventory';
+import { SkillManager } from '../systems/skills/SkillManager';
+import { createAllSkills } from '../systems/skills/index';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -70,6 +72,9 @@ export class Game extends Scene {
     // Item and inventory systems
     itemSystem!: ItemSystem;
     inventorySystem!: InventorySystem;
+
+    // Skill system
+    skillManager!: SkillManager;
 
     constructor() {
         super('Game');
@@ -149,11 +154,8 @@ export class Game extends Scene {
         // Make sure player is visible and on top of all map elements
         this.player.setDepth(100);
         
-        // Center the player in the visible screen area
-        const { width, height } = this.scale;
-        this.player.setPosition(width / 2, height / 2);
-        
         // Set up collision between player and world boundaries
+        const { width, height } = this.scale;
         this.physics.world.setBounds(0, 0, width * 2, height * 2);
         this.player.setCollideWorldBounds(true);
         
@@ -200,6 +202,10 @@ export class Game extends Scene {
 
         // Initialize flag system
         this.flagSystem = new FlagSystem(this, this.mapSystem);
+
+        // Initialize skill system
+        this.skillManager = new SkillManager(this);
+        this.skillManager.initialize(5, createAllSkills()); // Start with 5 skill points
     }
 
     /**
@@ -681,7 +687,8 @@ Gold: ${this.playerStats.gold}`;
             x: this.player.x,
             y: this.player.y,
             screenWidth: this.scale.width,
-            screenHeight: this.scale.height
+            screenHeight: this.scale.height,
+            depth: this.player.depth
         });
         
         // Get the exact player position using game world coordinates
