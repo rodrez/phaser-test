@@ -38,29 +38,39 @@ export class PlayerSystem {
 
         // Create the player sprite using Arcade physics
         this.player = this.scene.physics.add.sprite(startX, startY, 'player');
+        
         // Store the reference in the main scene
         (this.scene as any).player = this.player;
 
         // Configure player properties
-        this.player.setCollideWorldBounds(true);
-        this.player.setBounce(0.1);
-        this.player.setDepth(10);
-        this.player.body.setSize(32, 48);
-        (this.player.body as any).maxSpeed = 300;
+        if (this.player && this.player.body) {
+            this.player.setCollideWorldBounds(true);
+            this.player.setBounce(0.1);
+            this.player.setDepth(100); // Ensure player is on top of map elements
+            this.player.body.setSize(48, 48);
+            (this.player.body as any).maxSpeed = 300;
+        }
 
         // Add to entities group (assumes the scene has an 'entitiesGroup')
-        (this.scene as any).entitiesGroup.add(this.player);
+        if ((this.scene as any).entitiesGroup && this.player) {
+            (this.scene as any).entitiesGroup.add(this.player);
+        }
 
         // Create animations and vitals
         this.createPlayerAnimations();
         this.createVitals();
 
-        // Set up camera to follow player
-        this.scene.cameras.main.startFollow(this.player);
-        this.scene.cameras.main.setZoom(1.2);
+        // DO NOT set up camera to follow player in map-based games
+        // The camera should remain fixed on the map
 
-        // Create collision borders if needed
-        this.createPlayerCollisionsBorder();
+        // Default the player to idle animation
+        if (this.player && this.player.anims) {
+            this.player.anims.play('player-idle', true);
+            
+            // Make sure player is visible with proper tint
+            this.player.setAlpha(1);
+            this.player.setTint(0xffffff);
+        }
 
         return this.player;
     }
@@ -150,39 +160,117 @@ export class PlayerSystem {
             return;
         }
 
-        // Reset velocity
-        this.player.setVelocity(0);
-
-        const speed = 200;
+        // For a map-based game where we don't want physics affecting the map,
+        // we'll use direct position changes instead of physics velocities
+        const speed = 4; // Direct position change per frame
         let moving = false;
 
-        // WASD or arrow keys (assuming these keys are added to the scene)
+        // Current position
+        const currentX = this.player.x;
+        const currentY = this.player.y;
+        let newX = currentX;
+        let newY = currentY;
+
+        // WASD or arrow keys
         if ((this.scene as any).keyA?.isDown || (this.scene as any).keyLeft?.isDown) {
-            this.player.setVelocityX(-speed);
-            this.player.anims.play('player-move-left', true);
+            newX = currentX - speed;
+            if (this.player.anims) {
+                this.player.anims.play('player-move-left', true);
+            }
+            this.player.setFlipX(true);
             moving = true;
         } else if ((this.scene as any).keyD?.isDown || (this.scene as any).keyRight?.isDown) {
-            this.player.setVelocityX(speed);
-            this.player.anims.play('player-move-right', true);
+            newX = currentX + speed;
+            if (this.player.anims) {
+                this.player.anims.play('player-move-right', true);
+            }
+            this.player.setFlipX(false);
             moving = true;
         }
 
         if ((this.scene as any).keyW?.isDown || (this.scene as any).keyUp?.isDown) {
-            this.player.setVelocityY(-speed);
-            if (!moving) {
+            newY = currentY - speed;
+            if (!moving && this.player.anims) {
                 this.player.anims.play('player-move-up', true);
             }
             moving = true;
         } else if ((this.scene as any).keyS?.isDown || (this.scene as any).keyDown?.isDown) {
-            this.player.setVelocityY(speed);
-            if (!moving) {
+            newY = currentY + speed;
+            if (!moving && this.player.anims) {
                 this.player.anims.play('player-move-down', true);
             }
             moving = true;
         }
 
-        // Ensure camera continues to follow the player
-        this.scene.cameras.main.startFollow(this.player);
+        // Update player position directly
+        this.player.setPosition(newX, newY);
+        
+        // Apply world bounds manually
+        const bounds = (this.scene as any).physics.world.bounds;
+        if (bounds) {
+            if (this.player.x < bounds.x + this.player.width/2) {
+                this.player.x = bounds.x + this.player.width/2;
+            }
+            if (this.player.x > bounds.right - this.player.width/2) {
+                this.player.x = bounds.right - this.player.width/2;
+            }
+            if (this.player.y < bounds.y + this.player.height/2) {
+                this.player.y = bounds.y + this.player.height/2;
+            }
+            if (this.player.y > bounds.bottom - this.player.height/2) {
+                this.player.y = bounds.bottom - this.player.height/2;
+            }
+        }
+        
+        // Apply navigation circle boundary
+        const mapSystem = (this.scene as any).mapSystem;
+        if (mapSystem && mapSystem.navigationCircleGraphics) {
+            const screenWidth = this.scene.scale.width;
+            const screenCenterX = screenWidth / 2;
+            const screenCenterY = this.scene.scale.height / 2;
+            
+            // Navigation circle radius (same as used in MapSystem)
+            const screenRadius = screenWidth * 0.4;
+            
+            // Calculate distance from center to player
+            const dx = this.player.x - screenCenterX;
+            const dy = this.player.y - screenCenterY;
+            const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+            
+            // If player is outside the circle, move them back to the edge
+            if (distanceFromCenter > screenRadius) {
+                // Get the angle from center to player
+                const angle = Math.atan2(dy, dx);
+                
+                // Calculate point on the circle edge
+                const edgeX = screenCenterX + Math.cos(angle) * screenRadius;
+                const edgeY = screenCenterY + Math.sin(angle) * screenRadius;
+                
+                // Set player position to the edge
+                this.player.setPosition(edgeX, edgeY);
+                
+                // Visual feedback when hitting the boundary
+                if (this.player.tint !== 0xff0000) {  // If not already showing feedback
+                    const originalTint = this.player.tint;
+                    this.player.setTint(0xff0000);  // Red tint
+                    
+                    // Reset tint after a short delay
+                    this.scene.time.delayedCall(150, () => {
+                        if (this.player) {
+                            this.player.setTint(originalTint || 0xffffff);
+                        }
+                    });
+                }
+            }
+        }
+
+        // Set to idle animation if not moving
+        if (!moving && this.player.anims) {
+            this.player.anims.play('player-idle', true);
+        }
+        
+        // Reset velocity to prevent any physics from taking effect
+        this.player.setVelocity(0, 0);
 
         // Update health bar position if it exists
         this.updateHealthBarPosition();
@@ -248,12 +336,26 @@ export class PlayerSystem {
      */
     updateHealthBarPosition() {
         if (!this.player || !this.healthBar) return;
-
-        this.healthBar.background.x = this.player.x;
-        this.healthBar.background.y = this.player.y - 40;
-
-        this.healthBar.fill.x = this.player.x - (this.healthBar.fill.width / 2);
-        this.healthBar.fill.y = this.player.y - 40;
+        
+        // Update health bar position to follow player
+        if (this.healthBar.background && this.healthBar.fill) {
+            // Null checks for player position
+            const playerX = this.player?.x || 0;
+            const playerY = this.player?.y || 0;
+            
+            this.healthBar.background.x = playerX;
+            this.healthBar.background.y = playerY - 40;
+            
+            // Get health percentage with null safety
+            const playerStats = (this.scene as any).playerStats || { health: 100, maxHealth: 100 };
+            const healthPercent = playerStats.health / playerStats.maxHealth;
+            
+            this.healthBar.fill.x = playerX - 24 + (48 * healthPercent / 2);
+            this.healthBar.fill.y = playerY - 40;
+            
+            // Update health bar width based on current health
+            this.healthBar.fill.width = 48 * healthPercent;
+        }
     }
 
     /**
@@ -265,20 +367,24 @@ export class PlayerSystem {
     }
 
     /**
-     * Sets up player-specific input handlers.
+     * Sets up input controls for the player.
      */
     setupInput() {
         // Define keyboard controls and attach them to the scene.
-        (this.scene as any).keyW = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-        (this.scene as any).keyA = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-        (this.scene as any).keyS = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
-        (this.scene as any).keyD = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        (this.scene as any).keyUp = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
-        (this.scene as any).keyLeft = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
-        (this.scene as any).keyDown = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
-        (this.scene as any).keyRight = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-        (this.scene as any).keySpace = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        (this.scene as any).keyEsc = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        if (this.scene.input && this.scene.input.keyboard) {
+            (this.scene as any).keyW = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+            (this.scene as any).keyA = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+            (this.scene as any).keyS = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+            (this.scene as any).keyD = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+            (this.scene as any).keyUp = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+            (this.scene as any).keyLeft = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+            (this.scene as any).keyDown = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+            (this.scene as any).keyRight = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+            (this.scene as any).keySpace = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            (this.scene as any).keyEsc = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+        } else {
+            console.warn('Keyboard input not available in PlayerSystem. Player movement will be limited.');
+        }
     }
 
     /**

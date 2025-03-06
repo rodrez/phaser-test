@@ -25,6 +25,9 @@ export class Preloader extends Scene
             bar.width = 4 + (460 * progress);
 
         });
+
+        // Log when preload starts
+        console.log('Preloader started');
     }
 
     preload ()
@@ -33,9 +36,80 @@ export class Preloader extends Scene
         this.load.setPath('assets');
 
         this.load.image('logo', 'logo.png');
+        
+        // Load environment assets
+        this.load.image('tree', '/environment/tree.png');
+        // Load spruce-tree as a spritesheet (51x87 with multiple frames)
+        this.load.spritesheet('spruce-tree', '/environment/spruce-tree.png', { 
+            frameWidth: 51, 
+            frameHeight: 87 
+        });
+
+        // Load fruits spritesheet
+        this.load.spritesheet('fruits', '/items/fruits.png', {
+            frameWidth: 16,
+            frameHeight: 16
+        });
 
         // Load the player sprite sheet
-        this.load.spritesheet('player', '/characters/player.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('player', '/characters/player.png', { frameWidth: 48, frameHeight: 48 });
+
+        // Create fallback textures for icons
+        this.createFallbackIconTextures();
+        
+        // Load context menu icons
+        try {
+            console.log('Loading context menu icons...');
+            
+            // Try to load SVG icons
+            this.load.svg('icon-stats', '/icons/stats.svg');
+            this.load.svg('icon-inventory', '/icons/inventory.svg');
+            this.load.svg('icon-levelup', '/icons/levelup.svg');
+            this.load.svg('icon-rest', '/icons/rest.svg');
+            this.load.svg('icon-examine', '/icons/examine.svg');
+            this.load.svg('icon-travel', '/icons/travel.svg');
+            this.load.svg('icon-marker', '/icons/marker.svg');
+            
+            console.log('Context menu icons loaded successfully');
+        } catch (error) {
+            console.error('Error loading context menu icons:', error);
+        }
+        
+        // Add event listener for load error
+        this.load.on('loaderror', (file: Phaser.Loader.File) => {
+            console.error('Error loading file:', file.key, file.url);
+        });
+    }
+
+    /**
+     * Creates fallback textures for icons in case the SVG loading fails
+     */
+    createFallbackIconTextures() {
+        console.log('Creating fallback icon textures');
+        
+        // Define icon names
+        const iconNames = [
+            'icon-stats', 'icon-inventory', 'icon-levelup', 'icon-rest',
+            'icon-examine', 'icon-travel', 'icon-marker'
+        ];
+        
+        // Create a fallback texture for each icon
+        iconNames.forEach(name => {
+            const graphics = this.make.graphics({x: 0, y: 0});
+            
+            // Draw a simple shape
+            graphics.fillStyle(0xFFFFFF);
+            graphics.fillCircle(12, 12, 10);
+            
+            // Generate texture
+            try {
+                graphics.generateTexture(name + '-fallback',
+                24, 24);
+                console.log(`Created fallback texture for ${name}`);
+            } catch (error) {
+                console.error(`Error creating fallback texture for ${name}:`, error);
+            }
+        });
     }
 
     create ()
@@ -45,5 +119,8 @@ export class Preloader extends Scene
 
         //  Move to the MainMenu. You could also swap this for a Scene Transition, such as a camera fade.
         this.scene.start('MainMenu');
+
+        // Log when preload is complete
+        console.log('Preloader complete, starting game');
     }
 }

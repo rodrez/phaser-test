@@ -3,6 +3,9 @@ import { Game as MainGame } from './scenes/Game';
 import { GameOver } from './scenes/GameOver';
 import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
+import { MenuScene } from './scenes/MenuScene';
+import { InventoryScene } from './scenes/InventoryScene';
+import { CharacterScene } from './scenes/CharacterScene';
 
 import { Game, Types } from "phaser";
 
@@ -23,7 +26,10 @@ const config: Types.Core.GameConfig = {
         Preloader,
         MainMenu,
         MainGame,
-        GameOver
+        GameOver,
+        MenuScene,
+        InventoryScene,
+        CharacterScene
     ],
     physics: {
         default: 'arcade',
