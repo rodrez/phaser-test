@@ -3,7 +3,7 @@
 ## Skills 
 
 Pages and Experience
-In Parallel Kingdom, as you explore territory, vanquish foes and gather resources, you'll record your experiences in your Journal. This experience is recorded as Pages. 
+In Alternate Earth, as you explore territory, vanquish foes and gather resources, you'll record your experiences in your Journal. This experience is recorded as Pages. 
 You can see your current amount of Pages in the blue bar in the lower left corner of the display. The first number is your current progress and the second number is how many pages you'll need to Level Up and earn new skill points. Once you have enough Pages, the blue bar will say "Level Up!" Tap this message, and if you have enough Food to offer to the Monks, they will impart their highly coveted knowledge to you in the form of an additional Skill Point. Then, you'll find yourself on the Skills page where you can decide which new abilities you want.
 
 Extra Skill Points
@@ -37,7 +37,7 @@ Once you have reached Level 10, Specialization Skill tracks will become availabl
 
 ## Classes
 
-In Parallel Kingdom, your class is determined by the specialization skill track you choose. Each class has unique abilities, recommended equipment, and playstyles that make them distinct. You may only have one specialization (class) at a time, so choose wisely!
+In Alternate Earth, your class is determined by the specialization skill track you choose. Each class has unique abilities, recommended equipment, and playstyles that make them distinct. You may only have one specialization (class) at a time, so choose wisely!
 
 ### Class Comparison
 
@@ -691,7 +691,7 @@ A special bond with your Pets makes both of you stronger.
 
 ### Cartography
 
-Learn to craft useful exploration Items like Compasses and dig up Rare Treasures. Cartography is a great skill for people that love exploring. If you are an Explorer, the Cartography Skill is an extremely useful skill to have. With Cartography, you have the ability to make maps of the Parallel Kingdom world. You could make a treasure hunt, or record a specific location with a Treasure Map. You can map out a dungeon with a Dungeon Map, and you can also get an overview of an area of PK by making a Territory Map. Cartography is also a great skill if you want to craft map-related items.
+Learn to craft useful exploration Items like Compasses and dig up Rare Treasures. Cartography is a great skill for people that love exploring. If you are an Explorer, the Cartography Skill is an extremely useful skill to have. With Cartography, you have the ability to make maps of the Alternate Earth world. You could make a treasure hunt, or record a specific location with a Treasure Map. You can map out a dungeon with a Dungeon Map, and you can also get an overview of an area of PK by making a Territory Map. Cartography is also a great skill if you want to craft map-related items.
 
 **Level 1** (cost: 1 Skill Point)
 

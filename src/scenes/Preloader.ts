@@ -69,6 +69,12 @@ export class Preloader extends Scene
             this.load.svg('icon-examine', '/icons/examine.svg');
             this.load.svg('icon-travel', '/icons/travel.svg');
             this.load.svg('icon-marker', '/icons/marker.svg');
+            this.load.svg('icon-character', '/icons/character.svg');
+            this.load.svg('icon-create', '/icons/craft.svg');
+            this.load.svg('icon-leaderboard', '/icons/leaderboard.svg');
+            this.load.svg('icon-map', '/icons/map.svg');
+            this.load.svg('icon-inbox', '/icons/messaging.svg');
+            this.load.svg('icon-skills', '/icons/skills.svg');
             
             console.log('Context menu icons loaded successfully');
         } catch (error) {
@@ -90,7 +96,8 @@ export class Preloader extends Scene
         // Define icon names
         const iconNames = [
             'icon-stats', 'icon-inventory', 'icon-levelup', 'icon-rest',
-            'icon-examine', 'icon-travel', 'icon-marker'
+            'icon-examine', 'icon-travel', 'icon-marker', 'icon-close', 'icon-character',
+            'icon-craft', 'icon-leaderboard', 'icon-map', 'icon-messaging', 'icon-skills',
         ];
         
         // Create a fallback texture for each icon

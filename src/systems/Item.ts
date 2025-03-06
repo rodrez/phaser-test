@@ -266,20 +266,17 @@ export class ArmorItem extends BaseItem {
 export class ConsumableItem extends BaseItem {
     // Effects that happen when the item is consumed
     healthRestore?: number;
-    manaRestore?: number;
     tempAttributes?: ItemAttributes;
     effectDuration?: number; // In milliseconds
     
     constructor(itemData: IItem & {
         healthRestore?: number,
-        manaRestore?: number,
         tempAttributes?: ItemAttributes,
         effectDuration?: number
     }) {
         super(itemData);
         this.type = ItemType.CONSUMABLE;
         this.healthRestore = itemData.healthRestore;
-        this.manaRestore = itemData.manaRestore;
         this.tempAttributes = itemData.tempAttributes;
         this.effectDuration = itemData.effectDuration;
     }
@@ -304,7 +301,6 @@ export class FruitItem extends ConsumableItem {
         fruitType: FruitType,
         spriteFrame: number,
         healthRestore?: number,
-        manaRestore?: number,
         tempAttributes?: ItemAttributes,
         effectDuration?: number
     }) {

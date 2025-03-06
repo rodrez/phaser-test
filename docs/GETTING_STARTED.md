@@ -1,7 +1,7 @@
 # Getting Started
 
 ## Creating a New Account
-If this is the first time you have ever played Parallel Kingdom, start the app and hit Make New Account. Enter your character's name and gender, password, and email address. You will also have to enter your age and choose if you want to have txt msg notifications sent to your phone. These notifications let you know when things are happening even when you are not playing Parallel Kingdom. If you don't choose text message notifications, you can go use the "Settings" button in the game to change your notification settings later.
+If this is the first time you have ever played Alternate Earth, start the app and hit Make New Account. Enter your character's name and gender, password, and email address. You will also have to enter your age and choose if you want to have txt msg notifications sent to your phone. These notifications let you know when things are happening even when you are not playing Alternate Earth. If you don't choose text message notifications, you can go use the "Settings" button in the game to change your notification settings later.
 
 ## Controls
 Here are the basic controls to the game. Read through them or skip down to the Your First Fight section below.
@@ -12,21 +12,20 @@ Picking up items: Tap any items you see and select "Pick Up" from the menu.
 Communicating: You can chat with other players via Map Chat or Global Chat (more on communication in the Playing With Others Section of the guide)
 
 ## Menu Explanation
-Many of the actions in Parallel Kingdom are accessed through the menu. Here are all the menu options.
+Many of the actions in Alternate Earth are accessed through the menu. Here are all the menu options.
 
 If you press the button to open up your menu, you'll find 9 different buttons:
 
 From top-left:
 
-### Items: Here you can view your item list and equip different weapons and armours.
-### Messages: Here you can view either the Social Feed or the classic mailbox, including Personal, Kingdom, City, and Updates.
-### Create: Here you can either Build structures like flags and buoys or craft things that require different skills, like alchemy or leatherworking.
-### Skills: Here you can view the skills and specializations that you have skill points in
-### Character: Here you can view your profile page.
-### Players: Here you can view the list of players and check hat scores.
-### Travel: Here you can bring up your estate list and travel to lots of different places.
-### Chat: Here you can find a list of all the different chatrooms.
-### Food: Here you can view all of the options on getting food.
+- Inventory: Here you can view your item list and equip different weapons and armours.
+- Inbox: Here you can view either the Social Feed or the classic mailbox, including Personal, Kingdom, City, and Updates. Here you can find a list of all the different chatrooms.
+- Create: Here you can either Build structures like flags and buoys or craft things that require different skills, like alchemy or leatherworking.
+- Skills: Here you can view the skills and specializations that you have skill points in
+- Character: Here you can view your profile page.
+- Leaderboard: Here you can view the list of players and check hat scores.
+- Map: Here you can bring up your estate list and travel to lots of different places.
+- Food: Here you can view all of the options on getting food.
 
 ## Your First Fight
 Try tapping on items, monsters, and buildings around you for different actions you can do. Once you've explored around, try killing your first monster. Select a monster and select the Attack option. Your character should move towards the monster and start attacking it. A green circle in the top left of your character icon turns red to indicate you are aggressive. Keep an eye on your health in the lower right corner of the screen. Once you health drops below 50/100, move away (double tap) from the monster. If you have a Mourning Tree nearby, move towards it to start healing. Once you are healed again try fighting the monster again until one of you dies.

@@ -37,7 +37,7 @@ If you are fortunate, in the beginning you will find some white flags nearby. Th
 Rocs are giant flying birds that are tamed by trolls and are the source of Roc Feathers. When you find a roc, after attacking it, a Roc Shadow occasionally appears. By clicking on the Roc Shadow, you will have an option to follow it. This will take you to open land with good hunting, a bit like walking your dog.
 
 ## Visiting Others' Buildings: Right of Passage
-When you start out in Parallel Kingdom, you won't have many resources to build your own flags so you might want to use those of other players. Don't worry, most people are friendly in PK - you just have to reach out to them first. A good strategy is to tap on your neighbor's flags and send them a short Private Message. Just introduce yourself, tell them you're new and could use a little help getting around. Then follow the short instructions below to get Right of Passage so you can use their flags for travel. Just make sure not to attack their flags or cut down their trees - that's just bad manners.
+When you start out in Alternate Earth, you won't have many resources to build your own flags so you might want to use those of other players. Don't worry, most people are friendly in PK - you just have to reach out to them first. A good strategy is to tap on your neighbor's flags and send them a short Private Message. Just introduce yourself, tell them you're new and could use a little help getting around. Then follow the short instructions below to get Right of Passage so you can use their flags for travel. Just make sure not to attack their flags or cut down their trees - that's just bad manners.
 
 ### To Get Right of Passage
 Tap somebody else's structure.

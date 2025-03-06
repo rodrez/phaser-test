@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy RPG Menu</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Times New Roman', serif;
+            background: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: #e0d2b4;
+        }
+        
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('/api/placeholder/1200/800');
+            background-size: cover;
+            background-position: center;
+            filter: blur(4px) brightness(0.7);
+            z-index: -1;
+        }
+        
+        .menu-container {
+            width: 80%;
+            max-width: 800px;
+            background-color: rgba(32, 22, 11, 0.85);
+            border: 12px solid transparent;
+            border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='75' height='75'%3E%3Cg fill='none' stroke='%23b89d65' stroke-width='2'%3E%3Cpath d='M0,0 L75,0 L75,75 L0,75 L0,0 Z M0,0 L75,75 M75,0 L0,75'/%3E%3C/g%3E%3C/svg%3E") 30 stretch;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            display: flex;
+            z-index: 1;
+        }
+        
+        .menu-title {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 36px;
+            color: #f0e0c0;
+            text-shadow: 0 0 10px #000, 0 0 20px #704214;
+            letter-spacing: 2px;
+        }
+        
+        .menu-sidebar {
+            width: 220px;
+            padding-right: 20px;
+        }
+        
+        .menu-content {
+            flex: 1;
+            padding: 10px 20px;
+            background-color: rgba(56, 38, 19, 0.7);
+            border: 1px solid #b89d65;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .menu-content-detail {
+            text-align: center;
+        }
+        
+        .menu-content-title {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: #f0e0c0;
+            text-shadow: 0 0 10px #704214;
+        }
+        
+        .menu-content-description {
+            font-size: 16px;
+            color: #d0c0a0;
+            line-height: 1.4;
+        }
+        
+        .menu-icon {
+            width: 40px;
+            height: 40px;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+            filter: drop-shadow(0 0 2px #704214);
+        }
+        
+        .menu-item {
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            border: 1px solid transparent;
+        }
+        
+        .menu-item:hover {
+            background-color: rgba(184, 157, 101, 0.2);
+            border: 1px solid #b89d65;
+            transform: translateX(5px);
+        }
+        
+        .menu-item.active {
+            background-color: rgba(184, 157, 101, 0.4);
+            border: 1px solid #b89d65;
+            box-shadow: 0 0 10px rgba(184, 157, 101, 0.5);
+        }
+        
+        .menu-item-text {
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        
+        .character-portrait {
+            width: 200px;
+            height: 200px;
+            border: 5px solid #b89d65;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            background-image: url('/api/placeholder/200/200');
+            background-size: cover;
+        }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    
+    <div class="menu-container">
+        <div class="menu-title">REALM OF LEGENDS</div>
+        
+        <div class="menu-sidebar">
+            <div class="menu-item" onclick="activateMenuItem(this, 'inventory')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M20,6h-4V4c0-1.1-0.9-2-2-2h-4C8.9,2,8,2.9,8,4v2H4C2.9,6,2,6.9,2,8v11c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V8 C22,6.9,21.1,6,20,6z M10,4h4v2h-4V4z M20,19H4V8h16V19z"/>
+                    <path d="M13,10h-2v3H8v2h3v3h2v-3h3v-2h-3V10z"/>
+                </svg>
+                <span class="menu-item-text">Inventory</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'inbox')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M20,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V6C22,4.9,21.1,4,20,4z M20,18H4V8l8,5l8-5V18z M12,11 L4,6h16L12,11z"/>
+                </svg>
+                <span class="menu-item-text">Inbox</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'create')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M13.02,19.93v2.02c2.01-0.2,3.84-1,5.32-2.21l-1.42-1.43C15.81,19.17,14.48,19.75,13.02,19.93z"/>
+                    <path d="M4.03,12c0-4.05,3.03-7.41,6.95-7.93V2.05C5.95,2.58,2.03,6.84,2.03,12c0,5.16,3.92,9.42,8.95,9.95v-2.02 C7.06,19.41,4.03,16.05,4.03,12z"/>
+                    <path d="M19.95,11h2.02c-0.2-2.01-1-3.84-2.21-5.32l-1.43,1.43C19.19,8.21,19.77,9.54,19.95,11z"/>
+                    <path d="M18.34,4.26c-1.48-1.21-3.32-2.01-5.32-2.21v2.02c1.46,0.18,2.79,0.76,3.9,1.62L18.34,4.26z"/>
+                    <path d="M18.33,16.9l1.43,1.42c1.21-1.48,2.01-3.31,2.21-5.32h-2.02C19.77,14.46,19.19,15.79,18.33,16.9z"/>
+                    <path d="M16,11.1C16,8.61,14.1,7,12,7s-4,1.61-4,4.1c0,1.66,1.33,3.63,4,5.9C14.67,14.73,16,12.76,16,11.1z M12,12 c-0.59,0-1.07-0.48-1.07-1.07c0-0.59,0.48-1.07,1.07-1.07s1.07,0.48,1.07,1.07C13.07,11.52,12.59,12,12,12z"/>
+                </svg>
+                <span class="menu-item-text">Create</span>
+            </div>
+            
+            <div class="menu-item active" onclick="activateMenuItem(this, 'character')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M12,12c2.21,0,4-1.79,4-4s-1.79-4-4-4S8,5.79,8,8S9.79,12,12,12z M12,6c1.1,0,2,0.9,2,2s-0.9,2-2,2s-2-0.9-2-2 S10.9,6,12,6z"/>
+                    <path d="M12,13c-2.67,0-8,1.34-8,4v3h16v-3C20,14.34,14.67,13,12,13z M18,18H6v-0.99c0.2-0.72,3.3-2.01,6-2.01s5.8,1.29,6,2 V18z"/>
+                </svg>
+                <span class="menu-item-text">Character</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'skills')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M11.99,2C6.47,2,2,6.48,2,12s4.47,10,9.99,10C17.52,22,22,17.52,22,12S17.52,2,11.99,2z M12,20c-4.42,0-8-3.58-8-8 s3.58-8,8-8s8,3.58,8,8S16.42,20,12,20z"/>
+                    <path d="M12.5,7H11v6l5.25,3.15l0.75-1.23l-4.5-2.67V7z"/>
+                </svg>
+                <span class="menu-item-text">Skills</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'leaderboard')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M19,5h-2V3H7v2H5C3.9,5,3,5.9,3,7v1c0,2.55,1.92,4.63,4.39,4.94c0.63,1.5,1.98,2.63,3.61,2.96V19H7v2h10v-2h-4v-3.1 c1.63-0.33,2.98-1.46,3.61-2.96C19.08,12.63,21,10.55,21,8V7C21,5.9,20.1,5,19,5z M5,8V7h2v3.82C5.84,10.4,5,9.3,5,8z M12,14 c-1.65,0-3-1.35-3-3V5h6v6C15,12.65,13.65,14,12,14z M19,8c0,1.3-0.84,2.4-2,2.82V7h2V8z"/>
+                </svg>
+                <span class="menu-item-text">Leaderboard</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'map')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M20.5,3l-0.16,0.03L15,5.1L9,3L3.36,4.9C3.15,4.97,3,5.15,3,5.38V20.5C3,20.78,3.22,21,3.5,21l0.16-0.03L9,18.9l6,2.1 l5.64-1.9c0.21-0.07,0.36-0.25,0.36-0.48V3.5C21,3.22,20.78,3,20.5,3z M15,19l-6-2.11V5l6,2.11V19z"/>
+                </svg>
+                <span class="menu-item-text">Map</span>
+            </div>
+            
+            <div class="menu-item" onclick="activateMenuItem(this, 'food')">
+                <svg class="menu-icon" viewBox="0 0 24 24" fill="#e0d2b4">
+                    <path d="M11,9H9V2H7v7H5V2H3v7c0,2.12,1.66,3.84,3.75,3.97V22h2.5v-9.03C11.34,12.84,13,11.12,13,9V2h-2V9z"/>
+                    <path d="M16,6v8h2.5v8H21V2C18.24,2,16,4.24,16,6z"/>
+                </svg>
+                <span class="menu-item-text">Food</span>
+            </div>
+        </div>
+        
+        <div class="menu-content">
+            <div class="menu-content-detail">
+                <div class="character-portrait"></div>
+                <div class="menu-content-title">Sir Lancelot</div>
+                <div class="menu-content-description">
+                    Level 32 Knight<br>
+                    Guild: Knights of the Round Table<br><br>
+                    Health: 245/245<br>
+                    Mana: 120/120<br>
+                    Stamina: 180/180<br><br>
+                    Current Quest: Slay the Dragon of Blackrock Mountain
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function activateMenuItem(element, section) {
+            // Deactivate all menu items
+            const menuItems = document.querySelectorAll('.menu-item');
+            menuItems.forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Activate clicked item
+            element.classList.add('active');
+            
+            // For a real implementation, we would update content here
+            console.log("Navigated to: " + section);
+        }
+    </script>
+</body>
+</html>

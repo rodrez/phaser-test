@@ -26,7 +26,6 @@ export class CharacterScene extends Scene {
     /** Character stats */
     private stats = {
         health: 100,
-        mana: 50,
         strength: 10,
         agility: 10,
         intelligence: 10,
@@ -183,7 +182,6 @@ export class CharacterScene extends Scene {
         
         // Create stat text objects
         const healthText = this.add.text(0, -50, `Health: ${this.stats.health}`, statStyle);
-        const manaText = this.add.text(0, -25, `Mana: ${this.stats.mana}`, statStyle);
         const strengthText = this.add.text(0, 0, `Strength: ${this.stats.strength}`, statStyle);
         const agilityText = this.add.text(0, 25, `Agility: ${this.stats.agility}`, statStyle);
         const intelligenceText = this.add.text(0, 50, `Intelligence: ${this.stats.intelligence}`, statStyle);
@@ -192,7 +190,6 @@ export class CharacterScene extends Scene {
         // Add stats to container
         statsContainer.add([
             healthText,
-            manaText,
             strengthText,
             agilityText,
             intelligenceText,
@@ -290,7 +287,6 @@ export class CharacterScene extends Scene {
         // Base stats
         this.stats = {
             health: 100,
-            mana: 50,
             strength: 10,
             agility: 10,
             intelligence: 10,
@@ -313,7 +309,6 @@ export class CharacterScene extends Scene {
                 this.stats.stamina += skill.level;
             } else if (skill.id === 'druid') {
                 this.stats.intelligence += skill.level * 2;
-                this.stats.mana += skill.level * 15;
             } else if (skill.id === 'ninja') {
                 this.stats.agility += skill.level * 3;
                 this.stats.strength += skill.level;
