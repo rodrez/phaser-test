@@ -81,7 +81,21 @@ export class Game extends Scene {
     }
 
     preload() {
-        // No preloading needed for Leaflet
+        // Load player assets
+        this.load.spritesheet('player', 'assets/player.png', { frameWidth: 32, frameHeight: 48 });
+        
+        // Load UI assets
+        this.load.image('menu-button', 'assets/menu-button.png');
+        
+        // Load particle texture for effects
+        this.load.image('particle', 'assets/particle.png');
+        
+        // Load sound effects
+        this.load.audio('pickup', 'assets/pickup.mp3');
+        this.load.audio('place-flag', 'assets/place-flag.mp3');
+        this.load.audio('repair', 'assets/repair.mp3');
+        this.load.audio('powerup', 'assets/powerup.mp3');
+        this.load.audio('explosion', 'assets/explosion.mp3');
     }
 
     create() {
@@ -850,7 +864,7 @@ Gold: ${this.playerStats.gold}`;
             const treeType = tree.texture.key;
             const treeName = treeType === 'spruce-tree' ? 'Spruce Tree' : 'Oak Tree';
             
-            // Show context menu for the tree
+            // Create menu options array
             const menuOptions = [
                 {
                     text: 'Examine',
@@ -898,8 +912,226 @@ Gold: ${this.playerStats.gold}`;
                 }
             ];
             
+            // Check if the tree has fruits by looking for child sprites
+            const hasFruits = this.checkTreeHasFruits(tree);
+            
+            // Add "Gather Fruits" option if the tree has fruits
+            if (hasFruits) {
+                menuOptions.push({
+                    text: 'Gather Fruits',
+                    callback: () => {
+                        this.gatherFruitsFromTree(tree);
+                    },
+                    icon: 'icon-inventory'
+                });
+            }
+            
             // Show the context menu at the tree's position
             this.contextMenu.show(tree.x, tree.y, menuOptions);
+        });
+    }
+    
+    /**
+     * Check if a tree has fruits
+     * @param tree The tree to check
+     * @returns True if the tree has fruits, false otherwise
+     */
+    checkTreeHasFruits(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): boolean {
+        // Get all sprites at the tree's position
+        const sprites = this.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        });
+        
+        return sprites.length > 0;
+    }
+    
+    /**
+     * Gather all fruits from a tree
+     * @param tree The tree to gather fruits from
+     */
+    gatherFruitsFromTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Get all fruit sprites near the tree
+        const fruitSprites = this.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        }) as Phaser.GameObjects.Sprite[];
+        
+        if (fruitSprites.length === 0) {
+            // No fruits found
+            const noFruitsMsg = this.add.text(tree.x, tree.y - 50, "No fruits to gather!", {
+                fontSize: '16px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 3
+            }).setOrigin(0.5);
+            
+            // Fade out and destroy
+            this.tweens.add({
+                targets: noFruitsMsg,
+                alpha: 0,
+                y: noFruitsMsg.y - 30,
+                duration: 2000,
+                onComplete: () => noFruitsMsg.destroy()
+            });
+            
+            return;
+        }
+        
+        // Move player closer to the tree if they're far away
+        const player = this.player;
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, tree.x, tree.y);
+        
+        if (distance > 50) {
+            // Player is too far, move closer first
+            const angle = Phaser.Math.Angle.Between(player.x, player.y, tree.x, tree.y);
+            const targetX = tree.x - Math.cos(angle) * 40;
+            const targetY = tree.y - Math.sin(angle) * 40;
+            
+            // Move player to the tree
+            this.tweens.add({
+                targets: player,
+                x: targetX,
+                y: targetY,
+                duration: distance * 5, // Speed based on distance
+                ease: 'Linear',
+                onStart: () => {
+                    // Show a message that player is moving to the tree
+                    const moveMsg = this.add.text(player.x, player.y - 20, "Moving to tree...", {
+                        fontSize: '14px',
+                        color: '#ffffff',
+                        stroke: '#000000',
+                        strokeThickness: 2
+                    }).setOrigin(0.5);
+                    
+                    // Fade out and destroy
+                    this.tweens.add({
+                        targets: moveMsg,
+                        alpha: 0,
+                        y: moveMsg.y - 10,
+                        duration: 1000,
+                        onComplete: () => moveMsg.destroy()
+                    });
+                },
+                onComplete: () => {
+                    // After moving, perform the gathering action
+                    this.performGatherFruits(tree, fruitSprites);
+                }
+            });
+        } else {
+            // Player is close enough, gather immediately
+            this.performGatherFruits(tree, fruitSprites);
+        }
+    }
+    
+    /**
+     * Perform the actual fruit gathering action
+     * @param tree The tree being gathered from
+     * @param fruitSprites Array of fruit sprites to gather
+     */
+    performGatherFruits(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite, fruitSprites: Phaser.GameObjects.Sprite[]): void {
+        // Face the player toward the tree
+        if (tree.x > this.player.x) {
+            this.player.setFlipX(false);
+        } else {
+            this.player.setFlipX(true);
+        }
+        
+        // Track gathered fruits
+        const gatheredFruits: { [key: string]: number } = {};
+        let totalFruits = 0;
+        
+        // Process each fruit with a slight delay between them
+        let currentDelay = 0;
+        fruitSprites.forEach((fruit, index) => {
+            // Get fruit data
+            const fruitFrame = fruit.getData('fruitFrame');
+            
+            // Determine which fruit item to add based on the frame
+            let itemId;
+            let fruitName;
+            
+            switch (fruitFrame) {
+                case 0:
+                    itemId = 'food_apple';
+                    fruitName = 'Apple';
+                    break;
+                case 1:
+                    itemId = 'food_orange';
+                    fruitName = 'Orange';
+                    break;
+                case 3:
+                    itemId = 'food_cherry';
+                    fruitName = 'Cherry';
+                    break;
+                default:
+                    itemId = 'food_apple'; // Default to apple
+                    fruitName = 'Fruit';
+            }
+            
+            // Add to gathered count
+            if (!gatheredFruits[fruitName]) {
+                gatheredFruits[fruitName] = 0;
+            }
+            gatheredFruits[fruitName]++;
+            totalFruits++;
+            
+            // Add tween to animate fruit collection
+            this.tweens.add({
+                targets: fruit,
+                x: this.player.x,
+                y: this.player.y,
+                alpha: 0,
+                scale: 0.5,
+                duration: 500,
+                ease: 'Quad.easeIn',
+                delay: index * 200, // Stagger the collection
+                onComplete: () => {
+                    // Add the fruit to inventory
+                    this.givePlayerItem(itemId, 1);
+                    
+                    // Remove the fruit sprite
+                    fruit.destroy();
+                    
+                    // If this is the last fruit, show the summary message
+                    if (index === fruitSprites.length - 1) {
+                        // Show success message after all fruits are gathered
+                        let message = "You gathered:";
+                        for (const [fruitName, count] of Object.entries(gatheredFruits)) {
+                            message += `\n${count}x ${fruitName}`;
+                        }
+                        
+                        // Display the message
+                        const gatherMsg = this.add.text(tree.x, tree.y - 50, message, {
+                            fontSize: '16px',
+                            color: '#ffffff',
+                            stroke: '#000000',
+                            strokeThickness: 3,
+                            align: 'center'
+                        }).setOrigin(0.5);
+                        
+                        // Fade out and destroy
+                        this.tweens.add({
+                            targets: gatherMsg,
+                            alpha: 0,
+                            y: gatherMsg.y - 30,
+                            duration: 2000,
+                            onComplete: () => gatherMsg.destroy()
+                        });
+                        
+                        // Add some XP for gathering
+                        if (this.skillManager) {
+                            this.skillManager.addSkillPoints(Math.ceil(totalFruits / 2));
+                        }
+                    }
+                }
+            });
         });
     }
     
@@ -1018,41 +1250,73 @@ Gold: ${this.playerStats.gold}`;
                     duration: 2000,
                     onComplete: () => woodMsg.destroy()
                 });
+                
+                // Create stump effect
+                this.createTreeStump(tree);
+                
+                // Remove any fruits attached to this tree
+                this.removeFruitsFromTree(tree);
+                
+                // Make the tree disappear with a falling animation
+                this.tweens.add({
+                    targets: tree,
+                    y: tree.y + 20,
+                    alpha: 0,
+                    angle: tree.angle + Phaser.Math.Between(-15, 15),
+                    duration: 800,
+                    ease: 'Quad.easeIn',
+                    onComplete: () => {
+                        // Remove the tree from the game
+                        tree.destroy();
+                    }
+                });
             }
         });
     }
     
     /**
-     * Create wood chip particle effect when chopping a tree
-     * @param x X coordinate
-     * @param y Y coordinate
+     * Create a tree stump where the tree was chopped
+     * @param tree The tree that was chopped
      */
-    createWoodChipParticles(x: number, y: number): void {
-        // Check if wood-chip texture exists, if not create a fallback
-        if (!this.textures.exists('wood-chip')) {
-            const graphics = this.make.graphics({x: 0, y: 0});
-            graphics.fillStyle(0x8B4513); // Brown color
-            graphics.fillRect(0, 0, 8, 4);
-            graphics.generateTexture('wood-chip', 8, 4);
-        }
+    createTreeStump(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Create a simple stump graphic
+        const stump = this.add.graphics();
+        stump.fillStyle(0x8B4513, 1); // Brown color
+        stump.fillCircle(tree.x, tree.y, 10);
+        stump.fillStyle(0x654321, 1); // Darker brown for rings
+        stump.fillCircle(tree.x, tree.y, 6);
+        stump.fillStyle(0x8B4513, 1); // Brown again
+        stump.fillCircle(tree.x, tree.y, 3);
         
-        // Create wood chip particles
-        const particles = this.add.particles(x, y, 'wood-chip', {
-            speed: { min: 50, max: 150 },
-            angle: { min: 0, max: 360 },
-            scale: { start: 0.5, end: 0 },
-            lifespan: 1000,
-            gravityY: 300,
-            quantity: 10,
-            emitting: false
-        });
+        // Set depth to be below the tree but above the ground
+        stump.setDepth(tree.depth - 1);
+    }
+    
+    /**
+     * Remove all fruits associated with a tree
+     * @param tree The tree to remove fruits from
+     */
+    removeFruitsFromTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Get all fruit sprites near the tree
+        const fruitSprites = this.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        }) as Phaser.GameObjects.Sprite[];
         
-        // Emit once and then destroy
-        particles.explode();
-        
-        // Destroy the particle emitter after animation completes
-        this.time.delayedCall(1100, () => {
-            particles.destroy();
+        // Make fruits fall to the ground and disappear
+        fruitSprites.forEach(fruit => {
+            this.tweens.add({
+                targets: fruit,
+                y: fruit.y + 100,
+                alpha: 0,
+                angle: Phaser.Math.Between(-180, 180),
+                duration: 600,
+                ease: 'Quad.easeIn',
+                onComplete: () => fruit.destroy()
+            });
         });
     }
 
@@ -1288,7 +1552,38 @@ Gold: ${this.playerStats.gold}`;
                 console.warn('Sound not available for flag placement error', error);
             }
         });
-
+        
+        // Listen for flag destroyed events
+        this.events.on('flag-destroyed', (data: { flagId: string, flagName: string, isPlayerFlag: boolean }) => {
+            console.log('🚩💥 Flag destroyed:', data);
+            
+            // Play destruction sound
+            try {
+                if (this.sound.get('explosion')) {
+                    this.sound.play('explosion', { volume: 0.5 });
+                } else {
+                    // Fallback to a default sound
+                    this.sound.play('pickup', { volume: 0.5, detune: -500 }); // Lower pitch for destruction effect
+                }
+            } catch (error) {
+                console.warn('Sound not available for flag destruction', error);
+            }
+            
+            // Show message to the player
+            this.uiSystem.showMessage(`Flag "${data.flagName}" has been destroyed!`, 'warning', 3000);
+            
+            // Visual effect - screen shake
+            this.cameras.main.shake(300, 0.01);
+            
+            // If it was a player flag, remove it from player stats
+            if (data.isPlayerFlag) {
+                const flagIndex = this.playerStats.flags.findIndex(f => f.id === data.flagId);
+                if (flagIndex !== -1) {
+                    this.playerStats.flags.splice(flagIndex, 1);
+                }
+            }
+        });
+        
         // Listen for flag teleport events
         this.events.on('flag-teleport', (data: { lat: number, lon: number, flagId: string }) => {
             console.log('🚩➡️ Teleporting player to flag:', data);
@@ -1368,6 +1663,10 @@ Gold: ${this.playerStats.gold}`;
         this.events.on('flag-repaired', (data: { flagId: string, oldHealth: number, newHealth: number }) => {
             console.log('🚩🔧 Flag repaired:', data);
             
+            // Get the flag data
+            const flag = this.flagSystem.flags.get(data.flagId);
+            if (!flag) return;
+            
             // Play repair sound if available
             try {
                 if (this.sound.get('repair')) {
@@ -1380,6 +1679,15 @@ Gold: ${this.playerStats.gold}`;
                 console.warn('Sound not available for repair', error);
             }
             
+            // Show message to the player
+            this.uiSystem.showMessage(`Flag "${flag.name}" has been repaired!`, 'success', 2000);
+            
+            // Visual effect - healing particles
+            const screenPosition = this.mapSystem.geoToScreenCoordinates(flag.lat, flag.lon);
+            if (screenPosition) {
+                this.createRepairParticles(screenPosition.x, screenPosition.y);
+            }
+            
             // Add XP for repairing
             this.playerStats.xp += 5;
             this.uiSystem.updateXPDisplay(this.playerStats.xp, this.playerStats.xpToNextLevel);
@@ -1388,6 +1696,10 @@ Gold: ${this.playerStats.gold}`;
         // Listen for flag hardened events
         this.events.on('flag-hardened', (data: { flagId: string, flag: any }) => {
             console.log('🚩🛡️ Flag hardened:', data);
+            
+            // Get the flag data
+            const flag = this.flagSystem.flags.get(data.flagId);
+            if (!flag) return;
             
             // Play hardening sound if available
             try {
@@ -1401,9 +1713,122 @@ Gold: ${this.playerStats.gold}`;
                 console.warn('Sound not available for hardening', error);
             }
             
+            // Show message to the player
+            this.uiSystem.showMessage(`Flag "${flag.name}" has been hardened!`, 'success', 2000);
+            
+            // Visual effect - shield particles
+            const screenPosition = this.mapSystem.geoToScreenCoordinates(flag.lat, flag.lon);
+            if (screenPosition) {
+                this.createHardenParticles(screenPosition.x, screenPosition.y);
+            }
+            
             // Add XP for hardening
             this.playerStats.xp += 10;
             this.uiSystem.updateXPDisplay(this.playerStats.xp, this.playerStats.xpToNextLevel);
+        });
+    }
+
+    /**
+     * Create repair particle effect for flag repair
+     */
+    createRepairParticles(x: number, y: number): void {
+        // Create a particle emitter for repair effect
+        const particles = this.add.particles(x, y, 'particle', {
+            frame: 0,
+            color: [0x00ff00, 0x88ff88], // Green colors for healing
+            colorEase: 'quad.out',
+            lifespan: 800,
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.6, end: 0 },
+            speed: { min: 50, max: 100 },
+            quantity: 20,
+            blendMode: 'ADD',
+            emitting: false
+        });
+        
+        // Emit particles once
+        particles.explode();
+        
+        // Destroy the emitter after animation completes
+        this.time.delayedCall(1000, () => {
+            particles.destroy();
+        });
+    }
+
+    /**
+     * Create harden particle effect for flag hardening
+     */
+    createHardenParticles(x: number, y: number): void {
+        // Create a particle emitter for hardening effect
+        const particles = this.add.particles(x, y, 'particle', {
+            frame: 0,
+            color: [0x4488ff, 0x88aaff], // Blue colors for shield/hardening
+            colorEase: 'quad.out',
+            lifespan: 1000,
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.8, end: 0 },
+            speed: { min: 60, max: 120 },
+            quantity: 25,
+            blendMode: 'ADD',
+            emitting: false
+        });
+        
+        // Create a shield circle effect
+        const shield = this.add.circle(x, y, 40, 0x4488ff, 0.6);
+        shield.setStrokeStyle(3, 0x88aaff);
+        
+        // Emit particles once
+        particles.explode();
+        
+        // Animate the shield
+        this.tweens.add({
+            targets: shield,
+            alpha: 0,
+            scale: 1.5,
+            duration: 800,
+            ease: 'Cubic.Out',
+            onComplete: () => {
+                shield.destroy();
+            }
+        });
+        
+        // Destroy the emitter after animation completes
+        this.time.delayedCall(1200, () => {
+            particles.destroy();
+        });
+    }
+
+    /**
+     * Create wood chip particle effect when chopping a tree
+     * @param x X coordinate
+     * @param y Y coordinate
+     */
+    createWoodChipParticles(x: number, y: number): void {
+        // Check if wood-chip texture exists, if not create a fallback
+        if (!this.textures.exists('wood-chip')) {
+            const graphics = this.make.graphics({x: 0, y: 0});
+            graphics.fillStyle(0x8B4513); // Brown color
+            graphics.fillRect(0, 0, 8, 4);
+            graphics.generateTexture('wood-chip', 8, 4);
+        }
+        
+        // Create wood chip particles
+        const particles = this.add.particles(x, y, 'wood-chip', {
+            speed: { min: 50, max: 150 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.5, end: 0 },
+            lifespan: 1000,
+            gravityY: 300,
+            quantity: 10,
+            emitting: false
+        });
+        
+        // Emit once and then destroy
+        particles.explode();
+        
+        // Destroy the particle emitter after animation completes
+        this.time.delayedCall(1100, () => {
+            particles.destroy();
         });
     }
 }

@@ -3,6 +3,11 @@ import * as L from 'leaflet';
 import * as turf from '@turf/turf';
 import { MapSystem } from './Map';
 
+// Extend the Leaflet Marker type to include our custom popup property
+interface FlagMarker extends L.Marker {
+    popup?: L.Popup;
+}
+
 export interface FlagData {
     id: string;
     lat: number;
@@ -22,7 +27,7 @@ export class FlagSystem {
     
     // Storage for all flags - make this public to allow access from Game scene
     public flags: Map<string, FlagData> = new Map();
-    private flagMarkers: Map<string, L.Marker> = new Map();
+    private flagMarkers: Map<string, FlagMarker> = new Map();
     private flagCircles: Map<string, L.Circle> = new Map();
     
     // Merged flag circles visualization
@@ -61,6 +66,14 @@ export class FlagSystem {
             /* Ensure flag markers are above circles */
             .player-flag-marker, .flag-marker {
                 z-index: 1000 !important; /* Increased to make it higher than everything else */
+                cursor: pointer !important; /* Show pointer cursor on hover */
+                transition: transform 0.2s ease, filter 0.2s ease;
+            }
+            
+            /* Hover effects for flag markers */
+            .player-flag-marker:hover, .flag-marker:hover {
+                transform: scale(1.2) !important;
+                z-index: 1001 !important; /* Ensure hovered flag is above others */
             }
             
             /* Merged flag circles style */
@@ -80,8 +93,22 @@ export class FlagSystem {
                 filter: drop-shadow(0 0 5px rgba(255, 85, 0, 0.8));
             }
             
+            .player-flag-marker:hover {
+                filter: drop-shadow(0 0 8px rgba(255, 85, 0, 1.0));
+            }
+            
             .flag-marker {
                 filter: drop-shadow(0 0 5px rgba(34, 102, 255, 0.8));
+            }
+            
+            .flag-marker:hover {
+                filter: drop-shadow(0 0 8px rgba(34, 102, 255, 1.0));
+            }
+            
+            /* Make the flag context menu more attractive */
+            .flag-context-menu {
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             }
         `;
         document.head.appendChild(flagCircleStyle);
@@ -424,10 +451,31 @@ export class FlagSystem {
         // Set the flag color based on flag type
         const flagColor = flag.isPlayerFlag ? '#ff5500' : '#2266ff';
         
-        // Create a flag icon using Leaflet's divIcon
+        // Create a flag icon using Leaflet's divIcon with a more interactive appearance
         const flagIcon = L.divIcon({
             className: flag.isPlayerFlag ? 'player-flag-marker' : 'flag-marker',
-            html: `<div style="color: ${flagColor}; font-size: 24px;">🚩</div>`,
+            html: `
+                <div style="
+                    color: ${flagColor}; 
+                    font-size: 24px;
+                    text-align: center;
+                    position: relative;
+                ">
+                    <div style="
+                        position: absolute;
+                        bottom: -5px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        width: 10px;
+                        height: 10px;
+                        background-color: rgba(255, 255, 255, 0.7);
+                        border-radius: 50%;
+                        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+                        opacity: 0.8;
+                    "></div>
+                    🚩
+                </div>
+            `,
             iconSize: [24, 24],
             iconAnchor: [12, 24] // Bottom center of the icon is the exact flag position
         });
@@ -466,21 +514,34 @@ export class FlagSystem {
             interactive: true,
             zIndexOffset: 2000, // Very high to ensure it's above everything else
             pane: 'flagMarkerPane' // Use our custom high z-index pane
-        }).addTo(this.mapSystem.leafletMap);
+        }) as FlagMarker;
         
-        // Create an enhanced context menu popup with options
+        // Add the marker to the map
+        flagMarker.addTo(this.mapSystem.leafletMap!);
+        
+        // Create a popup with the context menu but don't bind it yet
         const popupContent = this.createFlagContextMenu(flag);
-        flagMarker.bindPopup(popupContent, { 
+        const popup = L.popup({ 
             className: 'flag-context-menu',
             closeButton: true,
             autoClose: false,
             closeOnEscapeKey: true
         });
+        popup.setContent(popupContent);
         
-        // Add event listeners for the popup buttons
-        flagMarker.on('popupopen', () => {
+        // Add click event listener for left-click interaction
+        flagMarker.on('click', (e) => {
+            // Prevent the default behavior
+            L.DomEvent.stopPropagation(e);
+            
+            // Set the popup position to the marker's position
+            popup.setLatLng(flagMarker.getLatLng());
+            
+            // Open the popup on the map
+            popup.openOn(this.mapSystem.leafletMap!);
+            
             // Get the popup DOM element
-            const popupEl = flagMarker.getPopup()?.getElement();
+            const popupEl = popup.getElement();
             if (!popupEl) return;
             
             // Find all buttons in the popup
@@ -493,7 +554,7 @@ export class FlagSystem {
             if (jumpButton) {
                 jumpButton.addEventListener('click', () => {
                     this.jumpToFlag(flag.id);
-                    flagMarker.closePopup();
+                    popup.close();
                 });
             }
             
@@ -502,7 +563,7 @@ export class FlagSystem {
                     if (confirm(`Are you sure you want to destroy "${flag.name}"?`)) {
                         this.removeFlag(flag.id);
                     } else {
-                        flagMarker.closePopup();
+                        popup.close();
                     }
                 });
             }
@@ -511,9 +572,9 @@ export class FlagSystem {
                 repairButton.addEventListener('click', () => {
                     this.repairFlag(flag.id);
                     // Update the popup content to reflect repairs
-                    flagMarker.setPopupContent(this.createFlagContextMenu(flag));
+                    popup.setContent(this.createFlagContextMenu(flag));
                     // Reopen to reflect changes
-                    flagMarker.openPopup();
+                    popup.openOn(this.mapSystem.leafletMap!);
                 });
             }
             
@@ -521,15 +582,18 @@ export class FlagSystem {
                 hardenButton.addEventListener('click', () => {
                     this.hardenFlag(flag.id);
                     // Update the popup content
-                    flagMarker.setPopupContent(this.createFlagContextMenu(flag));
+                    popup.setContent(this.createFlagContextMenu(flag));
                     // Reopen to reflect changes
-                    flagMarker.openPopup();
+                    popup.openOn(this.mapSystem.leafletMap!);
                 });
             }
         });
         
         // Store marker reference
         this.flagMarkers.set(flag.id, flagMarker);
+        
+        // Store popup reference for later updates
+        flagMarker.popup = popup;
         
         // Update the merged circles
         this.updateMergedFlagCircles();
@@ -606,35 +670,42 @@ export class FlagSystem {
             
             <style>
                 .flag-menu-container {
-                    min-width: 200px;
-                    padding: 8px;
+                    min-width: 220px;
+                    padding: 12px;
                     font-family: Arial, sans-serif;
+                    background-color: #fff;
+                    border-radius: 8px;
                 }
                 
                 .flag-header {
-                    margin-bottom: 10px;
-                    border-bottom: 1px solid #ccc;
-                    padding-bottom: 5px;
+                    margin-bottom: 12px;
+                    border-bottom: 1px solid #eee;
+                    padding-bottom: 8px;
                 }
                 
                 .flag-header h3 {
                     margin: 0;
                     margin-bottom: 4px;
-                    font-size: 16px;
+                    font-size: 18px;
+                    color: #333;
                 }
                 
                 .flag-type {
                     font-size: 12px;
                     color: #666;
+                    font-style: italic;
                 }
                 
                 .flag-info {
-                    margin-bottom: 12px;
+                    margin-bottom: 15px;
                     font-size: 13px;
+                    background-color: #f8f8f8;
+                    padding: 8px;
+                    border-radius: 4px;
                 }
                 
                 .info-item {
-                    margin: 4px 0;
+                    margin: 6px 0;
                     display: flex;
                     justify-content: space-between;
                 }
@@ -642,6 +713,7 @@ export class FlagSystem {
                 .info-label {
                     font-weight: bold;
                     margin-right: 8px;
+                    color: #555;
                 }
                 
                 .flag-actions {
@@ -651,19 +723,22 @@ export class FlagSystem {
                 }
                 
                 .flag-action-button {
-                    padding: 6px 10px;
+                    padding: 8px 12px;
                     border: none;
                     border-radius: 4px;
                     background: #f0f0f0;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
-                    font-size: 13px;
-                    transition: background-color 0.2s;
+                    font-size: 14px;
+                    transition: all 0.2s ease;
+                    font-weight: 500;
                 }
                 
                 .flag-action-button:hover {
                     background: #e0e0e0;
+                    transform: translateY(-1px);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                 }
                 
                 .flag-action-button.danger {
@@ -676,8 +751,8 @@ export class FlagSystem {
                 }
                 
                 .action-icon {
-                    margin-right: 6px;
-                    font-size: 14px;
+                    margin-right: 8px;
+                    font-size: 16px;
                 }
                 
                 .health-indicator {
@@ -882,6 +957,10 @@ export class FlagSystem {
         // Remove the marker from the map
         const marker = this.flagMarkers.get(flagId);
         if (marker && this.mapSystem.leafletMap) {
+            // Close the popup if it's open
+            if (marker.popup && marker.popup.isOpen()) {
+                marker.popup.close();
+            }
             marker.remove();
         }
         
@@ -894,6 +973,13 @@ export class FlagSystem {
         this.updateMergedFlagCircles();
         
         console.log(`🚩❌ Flag Removed: ${flag.name}`, { id: flagId });
+        
+        // Emit flag destroyed event
+        this.scene.events.emit('flag-destroyed', {
+            flagId,
+            flagName: flag.name,
+            isPlayerFlag: flag.isPlayerFlag
+        });
         
         return true;
     }
@@ -934,6 +1020,11 @@ export class FlagSystem {
         const marker = this.flagMarkers.get(flagId);
         if (marker) {
             marker.setLatLng([lat, lon]);
+            
+            // If the popup is open, update its position too
+            if (marker.popup && marker.popup.isOpen()) {
+                marker.popup.setLatLng([lat, lon]);
+            }
         }
         
         // Update circle position but don't add to map
