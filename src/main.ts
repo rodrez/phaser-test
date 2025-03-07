@@ -9,6 +9,7 @@ import { CharacterScene } from './scenes/CharacterScene';
 import { EquipmentDemoScene } from './scenes/EquipmentDemo';
 import { MedievalVitalsExample } from './ui/MedievalVitalsExample';
 import { InventoryDemoScene } from './systems/inventory/InventoryDemo';
+import { SkillsScene } from './scenes/SkillsScene';
 
 import { Game } from "phaser";
 import type { Types } from "phaser";
@@ -36,7 +37,8 @@ const config: Types.Core.GameConfig = {
         CharacterScene,
         EquipmentDemoScene,
         MedievalVitalsExample,
-        InventoryDemoScene
+        InventoryDemoScene,
+        SkillsScene
     ],
     physics: {
         default: 'arcade',

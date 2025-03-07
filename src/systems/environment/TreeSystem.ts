@@ -40,6 +40,9 @@ export class TreeSystem {
         const treeName = tree.getData('treeName') || 'Tree';
         const isHealingSpruce = tree.getData('isHealingSpruce') || false;
         
+        // Check if the tree has fruits
+        const hasFruits = this.checkTreeHasFruits(tree);
+        
         // Create HTML content for the popup
         let popupContent: PopupContent = {
             html: `
@@ -51,8 +54,9 @@ export class TreeSystem {
                             'A sturdy tree with thick branches and lush foliage.'}
                     </div>
                     <div class="tree-actions">
-                        <button class="action-btn info-btn">Examine</button>
-                        <button class="action-btn danger-btn">Chop</button>
+                        <button class="action-btn info-btn examine-btn">Examine</button>
+                        <button class="action-btn danger-btn chop-btn">Chop</button>
+                        ${hasFruits ? '<button class="action-btn success-btn gather-btn" style="background-color: #4CAF50; color: white;">Gather Fruits</button>' : ''}
                     </div>
                 </div>
             `,
@@ -78,6 +82,19 @@ export class TreeSystem {
             ]
         };
         
+        // Add gather fruits button if the tree has fruits
+        if (hasFruits) {
+            popupContent.buttons?.push({
+                selector: '.gather-btn',
+                onClick: () => {
+                    // Close the popup first
+                    this.popupSystem?.closePopupsByClass('tree-popup');
+                    // Then perform the gather fruits action
+                    this.handleGatherFruits(tree);
+                }
+            });
+        }
+        
         // Convert world position to screen position
         const camera = this.scene.cameras.main;
         const screenX = (tree.x - camera.scrollX) * camera.zoom;
@@ -95,6 +112,22 @@ export class TreeSystem {
                 offset: { x: 0, y: -20 }
             }
         );
+    }
+    
+    /**
+     * Check if a tree has fruits
+     */
+    private checkTreeHasFruits(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): boolean {
+        // Get all sprites at the tree's position
+        const sprites = this.scene.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        });
+        
+        return sprites.length > 0;
     }
     
     /**
@@ -326,10 +359,184 @@ export class TreeSystem {
     }
     
     /**
+     * Chop down a tree
+     */
+    private chopTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Check if player has the right tool (optional)
+        // For now, we'll allow chopping without a tool
+        
+        // Get player from the scene
+        const player = this.scene.registry.get('player') as Phaser.Physics.Arcade.Sprite;
+        if (!player) return;
+        
+        // Move player closer to the tree if they're far away
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, tree.x, tree.y);
+        if (distance > 50) {
+            // Player is too far, move closer first
+            const angle = Phaser.Math.Angle.Between(player.x, player.y, tree.x, tree.y);
+            const targetX = tree.x - Math.cos(angle) * 40;
+            const targetY = tree.y - Math.sin(angle) * 40;
+            
+            // Move player to the tree first, then chop
+            this.scene.tweens.add({
+                targets: player,
+                x: targetX,
+                y: targetY,
+                duration: distance * 5, // Speed based on distance
+                ease: 'Linear',
+                onComplete: () => {
+                    // After moving, perform the chopping action
+                    this.performChopAction(tree, player);
+                }
+            });
+        } else {
+            // Player is close enough, chop immediately
+            this.performChopAction(tree, player);
+        }
+    }
+    
+    /**
+     * Perform the actual tree chopping action and gather wood
+     */
+    private performChopAction(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite, player: Phaser.Physics.Arcade.Sprite): void {
+        // Face the player toward the tree
+        if (tree.x > player.x) {
+            player.setFlipX(false);
+        } else {
+            player.setFlipX(true);
+        }
+        
+        // Play chopping animation (shake the tree)
+        this.scene.tweens.add({
+            targets: tree,
+            x: tree.x + 3,
+            duration: 50,
+            yoyo: true,
+            repeat: 5,
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+                // Create wood particles effect
+                this.createWoodChipParticles(tree.x, tree.y);
+                
+                // Get the tree's wood amount data or use default values
+                const woodAmountData = tree.getData('woodAmount') || { min: 1, max: 3 };
+                
+                // Determine amount of wood to give based on tree type
+                const woodAmount = Phaser.Math.Between(woodAmountData.min, woodAmountData.max);
+                
+                // Emit an event for the Game scene to add wood to inventory
+                this.scene.events.emit('add-item-to-inventory', { itemId: 'wood', quantity: woodAmount });
+                
+                // Show success message
+                const treeName = tree.getData('treeName') || 'tree';
+                const message = `You gathered ${woodAmount} wood from the ${treeName}!`;
+                
+                // Display the message
+                const woodMsg = this.scene.add.text(tree.x, tree.y - 50, message, {
+                    fontSize: '16px',
+                    fontFamily: 'Cinzel, Times New Roman, serif',
+                    color: '#e8d4b9',
+                    stroke: '#2a1a0a',
+                    strokeThickness: 4,
+                    align: 'center',
+                    shadow: {
+                        offsetX: 2,
+                        offsetY: 2,
+                        color: '#000',
+                        blur: 4,
+                        fill: true
+                    }
+                }).setOrigin(0.5);
+                
+                // Fade out and destroy
+                this.scene.tweens.add({
+                    targets: woodMsg,
+                    alpha: 0,
+                    y: woodMsg.y - 30,
+                    duration: 2000,
+                    onComplete: () => woodMsg.destroy()
+                });
+                
+                // Create stump effect
+                this.createTreeStump(tree);
+                
+                // Remove any fruits attached to this tree
+                this.removeFruitsFromTree(tree);
+                
+                // Make the tree disappear with a falling animation
+                this.scene.tweens.add({
+                    targets: tree,
+                    y: tree.y + 20,
+                    alpha: 0,
+                    angle: tree.angle + Phaser.Math.Between(-15, 15),
+                    duration: 800,
+                    ease: 'Quad.easeIn',
+                    onComplete: () => {
+                        // Emit tree destroyed event
+                        this.scene.events.emit('tree-destroyed', tree);
+                        // Remove the tree from the game
+                        tree.destroy();
+                    }
+                });
+                
+                // Add some XP for woodcutting
+                this.scene.events.emit('add-skill-points', 1);
+            }
+        });
+    }
+    
+    /**
+     * Create a tree stump where the tree was chopped
+     */
+    private createTreeStump(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Create a simple stump graphic
+        const stump = this.scene.add.graphics();
+        stump.fillStyle(0x8B4513, 1); // Brown color
+        stump.fillCircle(tree.x, tree.y, 10);
+        stump.fillStyle(0x654321, 1); // Darker brown for rings
+        stump.fillCircle(tree.x, tree.y, 6);
+        stump.fillStyle(0x8B4513, 1); // Brown again
+        stump.fillCircle(tree.x, tree.y, 3);
+        
+        // Set depth to be below the tree but above the ground
+        stump.setDepth(tree.depth - 1);
+    }
+    
+    /**
+     * Remove all fruits associated with a tree
+     */
+    private removeFruitsFromTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Get all fruit sprites near the tree
+        const fruitSprites = this.scene.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        }) as Phaser.GameObjects.Sprite[];
+        
+        // Make fruits fall to the ground and disappear
+        for (const fruit of fruitSprites) {
+            this.scene.tweens.add({
+                targets: fruit,
+                y: fruit.y + 100,
+                alpha: 0,
+                angle: Phaser.Math.Between(-180, 180),
+                duration: 600,
+                ease: 'Quad.easeIn',
+                onComplete: () => fruit.destroy()
+            });
+        }
+    }
+    
+    /**
      * Examine a tree
      */
     private examineTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
         const treeName = tree.getData('treeName') || 'Tree';
+        const isHealingSpruce = tree.getData('isHealingSpruce') || false;
+        
+        // Random messages for tree interaction
         const messages = [
             `You found a ${treeName}!`,
             `A majestic ${treeName} stands before you.`,
@@ -337,8 +544,18 @@ export class TreeSystem {
             `Birds are nesting in this ${treeName}.`
         ];
         
+        // Add special messages for healing spruce
+        if (isHealingSpruce) {
+            messages.push(
+                `The ${treeName} emits a soft, healing aura.`,
+                `The needles of this ${treeName} shimmer with magical energy.`
+            );
+        }
+        
+        // Select a random message
         const message = messages[Math.floor(Math.random() * messages.length)];
         
+        // Show notification
         const treeMessage = this.scene.add.text(tree.x, tree.y - 50, message, {
             fontSize: '16px',
             fontFamily: 'Cinzel, Times New Roman, serif',
@@ -355,6 +572,7 @@ export class TreeSystem {
             }
         }).setOrigin(0.5);
         
+        // Add a nice fade out effect
         this.scene.tweens.add({
             targets: treeMessage,
             y: treeMessage.y - 30,
@@ -366,35 +584,222 @@ export class TreeSystem {
     }
     
     /**
-     * Chop down a tree
+     * Handle gathering fruits from a tree
      */
-    private chopTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
-        // Create wood particles effect
-        this.createWoodChipParticles(tree.x, tree.y);
+    private handleGatherFruits(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Get player from the scene
+        const player = this.scene.registry.get('player') as Phaser.Physics.Arcade.Sprite;
+        if (!player) return;
         
-        // Get wood amount
-        const woodAmountData = tree.getData('woodAmount') || { min: 1, max: 3 };
-        const woodAmount = Phaser.Math.Between(woodAmountData.min, woodAmountData.max);
+        // Get all fruit sprites near the tree
+        const fruitSprites = this.scene.children.list.filter(obj => {
+            // Check if it's a sprite and has fruitType data
+            return obj instanceof Phaser.GameObjects.Sprite && 
+                   obj.getData('fruitType') !== undefined &&
+                   // Check if it's close to the tree (within the tree's canopy)
+                   Phaser.Math.Distance.Between(obj.x, obj.y, tree.x, tree.y) < tree.displayWidth * 0.6;
+        }) as Phaser.GameObjects.Sprite[];
         
-        // Emit wood gathered event
-        this.scene.events.emit('wood-gathered', woodAmount);
+        if (fruitSprites.length === 0) {
+            // No fruits found
+            const noFruitsMsg = this.scene.add.text(tree.x, tree.y - 50, "No fruits to gather!", {
+                fontSize: '16px',
+                fontFamily: 'Cinzel, Times New Roman, serif',
+                color: '#e8d4b9',
+                stroke: '#2a1a0a',
+                strokeThickness: 4,
+                align: 'center',
+                shadow: {
+                    offsetX: 2,
+                    offsetY: 2,
+                    color: '#000',
+                    blur: 4,
+                    fill: true
+                }
+            }).setOrigin(0.5);
+            
+            // Add a nice fade out effect
+            this.scene.tweens.add({
+                targets: noFruitsMsg,
+                y: noFruitsMsg.y - 30,
+                alpha: 0,
+                duration: 2000,
+                ease: 'Cubic.easeOut',
+                onComplete: () => noFruitsMsg.destroy()
+            });
+            
+            return;
+        }
         
-        // Create stump
-        this.createTreeStump(tree);
+        // Move player closer to the tree if they're far away
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, tree.x, tree.y);
         
-        // Emit tree destroyed event
-        this.scene.events.emit('tree-destroyed', tree);
+        if (distance > 50) {
+            // Player is too far, move closer first
+            const angle = Phaser.Math.Angle.Between(player.x, player.y, tree.x, tree.y);
+            const targetX = tree.x - Math.cos(angle) * 40;
+            const targetY = tree.y - Math.sin(angle) * 40;
+            
+            // Move player to the tree
+            this.scene.tweens.add({
+                targets: player,
+                x: targetX,
+                y: targetY,
+                duration: distance * 5, // Speed based on distance
+                ease: 'Linear',
+                onComplete: () => {
+                    // After moving, perform the gathering action
+                    this.performGatherFruits(tree, fruitSprites, player);
+                }
+            });
+        } else {
+            // Player is close enough, gather immediately
+            this.performGatherFruits(tree, fruitSprites, player);
+        }
+    }
+    
+    /**
+     * Perform the actual fruit gathering action
+     */
+    private performGatherFruits(
+        tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite, 
+        fruitSprites: Phaser.GameObjects.Sprite[],
+        player: Phaser.Physics.Arcade.Sprite
+    ): void {
+        // Face the player toward the tree
+        if (tree.x > player.x) {
+            player.setFlipX(false);
+        } else {
+            player.setFlipX(true);
+        }
         
-        // Make the tree disappear
-        this.scene.tweens.add({
-            targets: tree,
-            y: tree.y + 20,
-            alpha: 0,
-            angle: tree.angle + Phaser.Math.Between(-15, 15),
-            duration: 800,
-            ease: 'Quad.easeIn',
-            onComplete: () => tree.destroy()
-        });
+        // Track gathered fruits
+        const gatheredFruits: { [key: string]: number } = {};
+        let totalFruits = 0;
+        let totalHealing = 0;
+        let hasHealingFruits = false;
+        
+        // Process each fruit with a slight delay between them
+        for (let index = 0; index < fruitSprites.length; index++) {
+            const fruit = fruitSprites[index];
+            
+            // Get fruit data
+            const fruitFrame = fruit.getData('fruitFrame');
+            const healingPower = fruit.getData('healingPower') || 0;
+            const isHealingFruit = fruit.getData('fromHealingSpruce') || false;
+            
+            if (isHealingFruit) {
+                hasHealingFruits = true;
+                totalHealing += healingPower;
+            }
+            
+            // Determine which fruit item to add based on the frame
+            let itemId = 'food_apple';
+            let fruitName = 'Fruit';
+            
+            switch (fruitFrame) {
+                case 0:
+                    itemId = 'food_apple';
+                    fruitName = isHealingFruit ? 'Healing Apple' : 'Apple';
+                    break;
+                case 1:
+                    itemId = 'food_orange';
+                    fruitName = isHealingFruit ? 'Healing Orange' : 'Orange';
+                    break;
+                case 3:
+                    itemId = 'food_cherry';
+                    fruitName = isHealingFruit ? 'Healing Cherry' : 'Cherry';
+                    break;
+                default:
+                    itemId = 'food_apple'; // Default to apple
+                    fruitName = isHealingFruit ? 'Healing Fruit' : 'Fruit';
+            }
+            
+            // Add to gathered count
+            if (!gatheredFruits[fruitName]) {
+                gatheredFruits[fruitName] = 0;
+            }
+            gatheredFruits[fruitName]++;
+            totalFruits++;
+            
+            // Add tween to animate fruit collection
+            this.scene.tweens.add({
+                targets: fruit,
+                x: player.x,
+                y: player.y,
+                alpha: 0,
+                scale: 0.5,
+                duration: 500,
+                ease: 'Quad.easeIn',
+                delay: index * 200, // Stagger the collection
+                onComplete: () => {
+                    // Add the fruit to inventory
+                    this.scene.events.emit('add-item-to-inventory', { itemId, quantity: 1 });
+                    
+                    // If this is a healing fruit, create a healing effect
+                    if (isHealingFruit && healingPower > 0) {
+                        // Emit healing event
+                        this.scene.events.emit('player-healed', healingPower);
+                    }
+                    
+                    // Remove the fruit sprite and its glow effect if it exists
+                    const glowEffect = fruit.getData('glowEffect');
+                    if (glowEffect) {
+                        glowEffect.destroy();
+                    }
+                    fruit.destroy();
+                    
+                    // If this is the last fruit, show the summary message and apply healing
+                    if (index === fruitSprites.length - 1) {
+                        // Apply healing if there were healing fruits
+                        if (hasHealingFruits && totalHealing > 0) {
+                            // Emit healing event
+                            this.scene.events.emit('player-healed', totalHealing);
+                        }
+                        
+                        // Show success message after all fruits are gathered
+                        let message = "You gathered:";
+                        for (const [fruitName, count] of Object.entries(gatheredFruits)) {
+                            message += `\n${count}x ${fruitName}`;
+                        }
+                        
+                        // Add healing message if applicable
+                        if (hasHealingFruits && totalHealing > 0) {
+                            message += `\n\nHealed for ${totalHealing} HP!`;
+                        }
+                        
+                        // Display the message
+                        const gatherMsg = this.scene.add.text(tree.x, tree.y - 50, message, {
+                            fontSize: '16px',
+                            fontFamily: 'Cinzel, Times New Roman, serif',
+                            color: '#e8d4b9',
+                            stroke: '#2a1a0a',
+                            strokeThickness: 4,
+                            align: 'center',
+                            shadow: {
+                                offsetX: 2,
+                                offsetY: 2,
+                                color: '#000',
+                                blur: 4,
+                                fill: true
+                            }
+                        }).setOrigin(0.5);
+                        
+                        // Fade out and destroy
+                        this.scene.tweens.add({
+                            targets: gatherMsg,
+                            alpha: 0,
+                            y: gatherMsg.y - 30,
+                            duration: 2000,
+                            onComplete: () => gatherMsg.destroy()
+                        });
+                        
+                        // Add some XP for gathering
+                        this.scene.events.emit('add-skill-points', Math.ceil(totalFruits / 2));
+                    }
+                }
+            });
+        }
     }
     
     /**
@@ -421,21 +826,6 @@ export class TreeSystem {
         particles.explode();
         
         this.scene.time.delayedCall(1100, () => particles.destroy());
-    }
-    
-    /**
-     * Create a tree stump
-     */
-    private createTreeStump(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
-        const stump = this.scene.add.graphics();
-        stump.fillStyle(0x8B4513, 1);
-        stump.fillCircle(tree.x, tree.y, 10);
-        stump.fillStyle(0x654321, 1);
-        stump.fillCircle(tree.x, tree.y, 6);
-        stump.fillStyle(0x8B4513, 1);
-        stump.fillCircle(tree.x, tree.y, 3);
-        
-        stump.setDepth(tree.depth - 1);
     }
     
     /**

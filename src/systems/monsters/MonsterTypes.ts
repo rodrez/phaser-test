@@ -39,6 +39,8 @@ export interface MonsterData {
     lootTable: MonsterLoot[];
     spriteKey: string;
     scale?: number;
+    goldReward?: number;
+    xpReward?: number;
 }
 
 export enum MonsterState {

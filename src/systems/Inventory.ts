@@ -35,6 +35,9 @@ export class InventorySystem {
     // Event emitter for inventory events
     private events: Phaser.Events.EventEmitter;
     
+    // Track new items for badge notification
+    private newItemsCount: number = 0;
+    
     constructor(scene: Scene, options: InventoryOptions = {}) {
         this.scene = scene;
         this.maxSlots = options.maxSlots || 20;
@@ -149,63 +152,46 @@ export class InventorySystem {
     
     // Add an item to the inventory
     addItem(item: BaseItem, quantity: number = 1): boolean {
-        if (quantity <= 0) return false;
-        
-        // Check if we have enough weight capacity
-        const totalWeight = item.weight * quantity;
-        if (!this.hasWeightCapacity(totalWeight)) {
-            this.events.emit('inventory-full', { item, quantity });
+        // Check if we have capacity for the item
+        if (!this.hasWeightCapacity(item.weight * quantity)) {
+            this.scene.events.emit('inventory-full');
             return false;
         }
         
-        let remaining = quantity;
+        // Try to find an existing stack with space
+        let slotIndex = this.findStackWithSpace(item);
         
-        // First try to add to existing stacks
-        if (item.stackable) {
-            for (let i = 0; i < this.slots.length && remaining > 0; i++) {
-                const stack = this.slots[i];
-                if (stack && stack.canStackWith(item) && stack.canAddMore()) {
-                    const leftover = stack.add(remaining);
-                    remaining = leftover;
-                    
-                    this.events.emit('item-added', { 
-                        item, 
-                        stack, 
-                        slot: i,
-                        quantity: quantity - remaining 
-                    });
-                    
-                    if (remaining === 0) break;
-                }
+        // If no stack with space, find a free slot
+        if (slotIndex === -1) {
+            slotIndex = this.findFreeSlot();
+            
+            // If no free slot, return false
+            if (slotIndex === -1) {
+                this.scene.events.emit('inventory-full');
+                return false;
             }
         }
         
-        // If we still have items left, create new stacks
-        while (remaining > 0) {
-            const freeSlot = this.findFreeSlot();
-            if (freeSlot === -1) {
-                // No more free slots
-                this.events.emit('inventory-full', { 
-                    item, 
-                    quantity: remaining 
-                });
-                return quantity !== remaining; // Return true if at least some items were added
-            }
-            
-            // Create a new stack in the free slot
-            const stackSize = Math.min(remaining, item.maxStackSize);
-            const newStack = new ItemStack(item.clone(), stackSize);
-            this.slots[freeSlot] = newStack;
-            
-            remaining -= stackSize;
-            
-            this.events.emit('item-added', { 
-                item, 
-                stack: newStack, 
-                slot: freeSlot,
-                quantity: stackSize 
-            });
+        // Get the existing stack or create a new one
+        const existingStack = this.slots[slotIndex];
+        
+        if (existingStack && existingStack.item.id === item.id) {
+            // Add to existing stack
+            existingStack.quantity += quantity;
+            this.scene.events.emit('inventory-updated', { slot: slotIndex, stack: existingStack });
+        } else {
+            // Create a new stack
+            const newStack = new ItemStack(item, quantity);
+            this.slots[slotIndex] = newStack;
+            this.scene.events.emit('inventory-updated', { slot: slotIndex, stack: newStack });
         }
+        
+        // Increment the new items counter
+        this.newItemsCount += quantity;
+        
+        // Emit events
+        this.scene.events.emit('item-added', { item, quantity });
+        this.events.emit('item-added', { item, quantity });
         
         return true;
     }
@@ -502,5 +488,21 @@ export class InventorySystem {
     // Remove an event subscription
     off(event: string, callback: (data: InventoryEventData) => void): void {
         this.events.off(event, callback);
+    }
+
+    /**
+     * Get the count of new items added to the inventory
+     * This is used for the inventory badge in the menu
+     */
+    getNewItemsCount(): number {
+        return this.newItemsCount;
+    }
+    
+    /**
+     * Reset the new items counter
+     * Call this after the player has viewed the inventory
+     */
+    resetNewItemsCount(): void {
+        this.newItemsCount = 0;
     }
 } 

@@ -194,6 +194,28 @@ export class MedievalVitalsIntegration {
     }
     
     /**
+     * Updates the player stats display
+     * Specifically useful after gaining XP from killing monsters
+     */
+    public updatePlayerStats(): void {
+        if (!this.vitals) return;
+        
+        const gameScene = this.scene as Game;
+        if (!gameScene.playerStats) return;
+        
+        // Update XP bar
+        this.vitals.updateXPBar(gameScene.playerStats.xp, gameScene.playerStats.xpToNextLevel);
+        
+        // Check if player can level up
+        if (gameScene.playerStats.xp >= gameScene.playerStats.xpToNextLevel) {
+            // Show level up notification if the game has a canLevelUp method
+            if (typeof gameScene.canLevelUp === 'function' && gameScene.canLevelUp()) {
+                this.showMessage('You can level up! Open character menu.', 'success', 5000);
+            }
+        }
+    }
+    
+    /**
      * Destroys the medieval vitals UI
      */
     public destroy(): void {

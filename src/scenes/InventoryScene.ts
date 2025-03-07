@@ -70,6 +70,14 @@ export class InventoryScene extends Scene {
     init(data: InventorySceneData) {
         this.gameScene = data.game;
         this.inventoryData = data.inventoryData;
+        
+        // Set the active menu item in the medieval menu
+        if (this.gameScene.medievalMenu) {
+            this.gameScene.medievalMenu.setActiveItem('inventory');
+        }
+        
+        // Reset the new items counter in the inventory system
+        this.gameScene.inventorySystem.resetNewItemsCount();
     }
     
     create() {
@@ -79,6 +87,7 @@ export class InventoryScene extends Scene {
         this.background = this.add.rectangle(0, 0, width, height, 0x000000, 0.7)
             .setOrigin(0)
             .setInteractive()
+            .setDepth(1000)
             .on('pointerdown', () => {
                 // Close inventory when clicking outside panels
                 if (this.input.activePointer.downElement === this.background) {
@@ -87,7 +96,7 @@ export class InventoryScene extends Scene {
             });
             
         // Create main container for all inventory elements
-        this.container = this.add.container(0, 0);
+        this.container = this.add.container(0, 0).setDepth(1001);
         
         // Create panels
         this.createPanels();
@@ -785,9 +794,13 @@ export class InventoryScene extends Scene {
     }
     
     private closeInventory() {
-        // Resume the game scene
+        // Clear the active menu item
+        if (this.gameScene.medievalMenu) {
+            this.gameScene.medievalMenu.setActiveItem(null);
+        }
+        
+        // Resume the game scene and stop this scene
         this.scene.resume('Game');
-        // Stop this scene
         this.scene.stop();
     }
 } 

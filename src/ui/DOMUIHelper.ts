@@ -53,6 +53,7 @@ export class DOMUIHelper {
         styles?: Partial<CSSStyleDeclaration>,
         parent?: HTMLElement
     ): T {
+        console.log(`[DOMUIHelper] Creating element: ${tag}${className ? ` with class ${className}` : ''}`);
         const element = document.createElement(tag) as T;
         
         if (className) {
@@ -101,6 +102,7 @@ export class DOMUIHelper {
         onClick: () => void,
         styles?: Partial<CSSStyleDeclaration>
     ): HTMLButtonElement {
+        console.log(`[DOMUIHelper] Creating button: "${text}" with class ${className}`);
         const button = this.createElement<HTMLButtonElement>(
             'button',
             className,
@@ -108,7 +110,13 @@ export class DOMUIHelper {
         );
         
         button.textContent = text;
-        button.addEventListener('click', onClick);
+        
+        // Add click handler with debugging
+        button.addEventListener('click', (event) => {
+            console.log(`[DOMUIHelper] Button clicked: "${text}"`);
+            console.log('[DOMUIHelper] Event target:', event.target);
+            onClick();
+        });
         
         return button;
     }

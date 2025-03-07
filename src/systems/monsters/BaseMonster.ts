@@ -10,6 +10,8 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
     public lootTable: MonsterLoot[];
     public currentState: MonsterState = MonsterState.IDLE;
     public isAutoAttacking: boolean = false;
+    public goldReward: number;
+    public xpReward: number;
 
     protected spawnPoint: PhaserMath.Vector2;
     protected wanderTarget: PhaserMath.Vector2 | null = null;
@@ -34,6 +36,8 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
         this.behavior = monsterData.behavior;
         this.attributes = { ...monsterData.attributes };
         this.lootTable = [...monsterData.lootTable];
+        this.goldReward = monsterData.goldReward || 0;
+        this.xpReward = monsterData.xpReward || 0;
         
         this.playerSprite = playerSprite;
         this.itemSystem = itemSystem;
@@ -193,6 +197,9 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
         // Drop loot
         this.dropLoot();
         
+        // Reward player with gold and XP
+        this.rewardPlayer();
+        
         // Play death animation or effect
         this.scene.tweens.add({
             targets: this,
@@ -236,6 +243,78 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
                 }
             }
         }
+    }
+
+    /**
+     * Rewards the player with gold and XP for killing this monster
+     */
+    protected rewardPlayer(): void {
+        const gameScene = this.scene as any;
+        
+        // Only proceed if we have access to player stats
+        if (!gameScene.playerStats) {
+            console.warn('Cannot reward player: playerStats not found');
+            return;
+        }
+        
+        // Add gold to player
+        if (this.goldReward > 0) {
+            gameScene.playerStats.gold += this.goldReward;
+            
+            // Update inventory gold if available
+            if (gameScene.inventorySystem) {
+                gameScene.inventorySystem.addGold(this.goldReward);
+            }
+            
+            // Show gold reward text
+            this.showRewardText(this.goldReward, '#FFD700');
+        }
+        
+        // Add XP to player
+        if (this.xpReward > 0) {
+            gameScene.playerStats.xp += this.xpReward;
+            
+            // Show XP reward text
+            this.showRewardText(`+${this.xpReward} XP`, '#00FFFF');
+            
+            // Check if player can level up
+            if (gameScene.playerStats.xp >= gameScene.playerStats.xpToNextLevel) {
+                // This will be handled by the game scene's update method
+                // Just update UI if available
+                if (gameScene.medievalVitals) {
+                    gameScene.medievalVitals.showMessage('Level up available!', 'success', 5000);
+                }
+            }
+            
+            // Update UI if available
+            if (gameScene.medievalVitals) {
+                gameScene.medievalVitals.updatePlayerStats();
+            }
+        }
+    }
+    
+    /**
+     * Shows a floating reward text above the monster
+     * @param text The text to display
+     * @param color The color of the text
+     */
+    protected showRewardText(text: string | number, color: string): void {
+        const textStr = typeof text === 'number' ? `+${text} gold` : text;
+        const rewardText = this.scene.add.text(
+            this.x, 
+            this.y - this.height / 2 - 20, 
+            textStr, 
+            { fontFamily: 'Arial', fontSize: '16px', color: color, stroke: '#000000', strokeThickness: 3 }
+        );
+        rewardText.setOrigin(0.5);
+        
+        this.scene.tweens.add({
+            targets: rewardText,
+            y: rewardText.y - 40,
+            alpha: 0,
+            duration: 1500,
+            onComplete: () => rewardText.destroy()
+        });
     }
 
     public update(time: number, delta: number): void {

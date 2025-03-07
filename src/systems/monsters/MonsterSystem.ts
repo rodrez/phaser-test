@@ -67,7 +67,9 @@ export class MonsterSystem {
                 }
             ],
             spriteKey: 'deer',
-            scale: .75
+            scale: .75,
+            goldReward: 5,
+            xpReward: 10
         });
         
         // Wolf - aggressive predator
@@ -100,7 +102,9 @@ export class MonsterSystem {
                 }
             ],
             spriteKey: 'wolf',
-            scale: 1
+            scale: 1,
+            goldReward: 10,
+            xpReward: 20
         });
         
         // TODO: Add more monster types here (bear, boar, etc.)

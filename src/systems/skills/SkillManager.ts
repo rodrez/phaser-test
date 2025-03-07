@@ -296,4 +296,20 @@ export class SkillManager {
     off(event: string, callback: Function): void {
         this.scene.events.off(`skill-manager-${event}`, callback);
     }
+    
+    /**
+     * Gets the number of available skill points.
+     * @returns The number of available skill points
+     */
+    getAvailablePoints(): number {
+        return this.availableSkillPoints;
+    }
+    
+    /**
+     * Gets all skills that the player has unlocked (learned).
+     * @returns Array of unlocked skills
+     */
+    getUnlockedSkills(): Skill[] {
+        return this.getLearnedSkills();
+    }
 } 

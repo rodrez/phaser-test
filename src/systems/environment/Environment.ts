@@ -58,6 +58,17 @@ export class Environment {
         
         // Add trees within the navigation circle
         this.treeSystem.addTreesInCircle(12, centerX, centerY, radius * 0.8);
+        
+        // Add fruits to healing spruce trees
+        const trees = this.environmentGroup.getChildren().filter(obj => 
+            (obj instanceof Phaser.GameObjects.Sprite || obj instanceof Phaser.GameObjects.Image) && 
+            obj.getData('isHealingSpruce') === true
+        );
+        
+        // Add fruits to each healing spruce tree
+        trees.forEach(tree => {
+            this.fruitSystem.addFruitsToTree(tree as Phaser.GameObjects.Sprite);
+        });
     }
     
     /**
