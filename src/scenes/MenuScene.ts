@@ -1,745 +1,909 @@
 import { Scene, GameObjects } from 'phaser';
 
+// TODO: This should be cleaned up to prevent 
+// orphaned objects from being created
+
+// Define an interface for the scene data
+interface MenuSceneData {
+    onClose?: () => void;
+}
+
 export class MenuScene extends Scene {
+    // Static counter to track instances
+    private static instanceCounter = 0;
+    private instanceId: number;
+
+    // Background elements
     private background: GameObjects.Image;
     private menuContainer: GameObjects.Container;
-    private menuPanel: GameObjects.Rectangle;
-    private menuBorder: GameObjects.Graphics;
     private menuTitle: GameObjects.Text;
-    private closeButton: GameObjects.Text;
-    private menuOptions: GameObjects.Container[] = [];
-    private contentPanel: GameObjects.Rectangle;
-    private contentTitle: GameObjects.Text;
-    private contentDescription: GameObjects.Text;
-    private contentMask: GameObjects.Graphics;
-    private contentScrollArea: GameObjects.Container;
-    private scrollUpButton: GameObjects.Container;
-    private scrollDownButton: GameObjects.Container;
+    
+    // Menu sections
+    private menuSidebar: GameObjects.Container;
+    private menuContent: GameObjects.Container;
+    
+    // Character content
     private characterPortrait: GameObjects.Image;
-    private activeSection: string = 'Character';
-
-    private menuItems = [
-        { name: 'Inventory', icon: 'inventory', action: () => this.showInventory() },
-        { name: 'Messaging', icon: 'inbox', action: () => this.showMessaging() },
-        { name: 'Craft', icon: 'create', action: () => this.showCraft() },
-        { name: 'Character', icon: 'character', action: () => this.showCharacter() },
-        { name: 'Map', icon: 'map', action: () => this.showMap() },
-        { name: 'Skills', icon: 'skills', action: () => this.showSkills() },
-        { name: 'Leaderboard', icon: 'leaderboard', action: () => this.showLeaderboard() },
-        { name: 'TestScroll', icon: 'test', action: () => this.updateContentPanel('TestScroll') },
+    private characterName: GameObjects.Text;
+    private characterDetails: GameObjects.Text;
+    
+    // Menu items
+    private menuItems: GameObjects.Container[] = [];
+    private activeMenuItem: number = 3; // Character is active by default
+    
+    // Menu sections data
+    private menuSections = [
+        { id: 'inventory', icon: 'icon-inventory', text: 'Inventory' },
+        { id: 'inbox', icon: 'icon-inbox', text: 'Inbox' },
+        { id: 'create', icon: 'icon-create', text: 'Create' },
+        { id: 'character', icon: 'icon-character', text: 'Character' },
+        { id: 'skills', icon: 'icon-skills', text: 'Skills' },
+        { id: 'leaderboard', icon: 'icon-leaderboard', text: 'Leaderboard' },
+        { id: 'map', icon: 'icon-map', text: 'Map' },
+        { id: 'food', icon: 'icon-rest', text: 'Food' } // Using rest icon as fallback for food
     ];
 
     constructor() {
         super('MenuScene');
+        // Assign a unique instance ID
+        MenuScene.instanceCounter++;
+        this.instanceId = MenuScene.instanceCounter;
+        console.log(`[MenuScene] Constructor called. Instance #${this.instanceId}`);
     }
 
-    preload() {
-        // Should preload necessary assets in the main loader scene
-        // Temporarily creating placeholder loads for demonstration
-        this.load.image('menu-background', '/background.jpg');
-        this.load.image('character-portrait', '/character.jpg');
-
-        // Preload icons for menu items
-        this.menuItems.forEach(item => {
-            this.load.svg(`icon-${item.icon.toLowerCase()}`, `/icons/${item.icon.toLowerCase()}.svg`);
-        });
+    init() {
+        // Initialize or reset all properties to prevent duplicates
+        // Destroy any existing game objects first
+        console.log(`[MenuScene] init: Starting initialization for instance #${this.instanceId}`);
+        
+        // Check if there are other active instances of this scene
+        const activeScenes = this.scene.manager.getScenes(true);
+        const menuScenes = activeScenes.filter(s => s.scene.key === 'MenuScene' && s !== this);
+        if (menuScenes.length > 0) {
+            console.warn(`[MenuScene] WARNING: Found ${menuScenes.length} other active MenuScene instances!`);
+        }
+        
+        this.destroyAllGameObjects();
+        
+        // Reset all properties to undefined
+        this.background = undefined as any;
+        this.menuContainer = undefined as any;
+        this.menuTitle = undefined as any;
+        this.menuSidebar = undefined as any;
+        this.menuContent = undefined as any;
+        this.characterPortrait = undefined as any;
+        this.characterName = undefined as any;
+        this.characterDetails = undefined as any;
+        this.menuItems = [];
+        this.activeMenuItem = 3; // Character is active by default
+        console.log(`[MenuScene] init: Completed initialization for instance #${this.instanceId}`);
     }
 
     create() {
-        // Get game dimensions
-        const width = this.cameras.main.width;
-        const height = this.cameras.main.height;
-
-        // Create blurred background image
-        this.background = this.add.image(width / 2, height / 2, 'menu-background')
-            .setDisplaySize(width, height)
-            .setInteractive()
-            .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-                // Only close if clicking directly on the background (not menu items)
-                if (pointer.downElement === this.background) {
-                    this.closeMenu();
-                }
+        console.log(`[MenuScene] create: Starting scene creation for instance #${this.instanceId}`);
+        // First, destroy any existing game objects to prevent duplication
+        this.destroyAllGameObjects();
+        
+        // Reset menu items array
+        this.menuItems = [];
+        
+        // Create background with blur effect
+        this.createBackground();
+        
+        // Create menu container with border
+        this.createMenuContainer();
+        
+        // Create menu title
+        this.createMenuTitle();
+        
+        // Create sidebar with menu items
+        this.createMenuSidebar();
+        
+        // Create content area - this will add it to the menuContainer
+        console.log(`[MenuScene] create: About to create menu content for instance #${this.instanceId}`);
+        this.createMenuContent();
+        console.log(`[MenuScene] create: Menu content created, position for instance #${this.instanceId}:`, 
+            this.menuContent ? `x:${this.menuContent.x}, y:${this.menuContent.y}` : 'undefined');
+        
+        // Ensure menu content is properly positioned
+        this.fixMenuContentPosition();
+        
+        // Check for duplicate containers
+        this.checkForDuplicateContainers();
+        
+        // Check for orphaned game objects
+        this.checkForOrphanedGameObjects();
+        
+        // If we still have orphaned objects, try to find and destroy them
+        this.destroyOrphanedObjects();
+        
+        // Set default active menu item (Character) only after all menu items are created
+        // Make sure we have menu items before trying to set the active one
+        if (this.menuItems && this.menuItems.length > 0) {
+            // Make sure the active menu item index is valid
+            if (this.activeMenuItem >= this.menuItems.length) {
+                this.activeMenuItem = 0;
+            }
+            console.log(`[MenuScene] create: Setting active menu item to ${this.activeMenuItem} for instance #${this.instanceId}`);
+            this.setActiveMenuItem(this.activeMenuItem);
+        }
+        
+        // Add close button or back functionality
+        if (this.input && this.input.keyboard) {
+            this.input.keyboard.on('keydown-ESC', () => {
+                this.returnToGame();
             });
-
-        // Apply blur filter - note: requires WebGL pipeline setup
-        // For simplicity, using a semi-transparent overlay instead
-        const darkOverlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.5)
-            .setOrigin(0);
-
-        // Create container for menu elements
-        this.menuContainer = this.add.container(width / 2, height / 2);
-
-        // Create fancy border using graphics
-        this.createStyledMenuPanel();
-
-        // Add title
-        this.menuTitle = this.add.text(0, -this.menuPanel.height / 2 - 40, 'REALM OF LEGENDS', {
-            fontFamily: 'Times New Roman, serif',
+        }
+        console.log(`[MenuScene] create: Scene creation completed for instance #${this.instanceId}`);
+        
+        // Check for duplicate containers again after everything is set up
+        this.checkForDuplicateContainers();
+        
+        // Check for orphaned game objects again
+        this.checkForOrphanedGameObjects();
+        
+        // Final cleanup of any remaining orphaned objects
+        this.destroyOrphanedObjects();
+    }
+    
+    private createBackground() {
+        // If there's an existing background, destroy it first
+        if (this.background) {
+            this.background.destroy();
+            this.background = undefined as any;
+        }
+        
+        // Add a semi-transparent background
+        this.background = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'background')
+            .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+            .setTint(0x000000)
+            .setAlpha(0.7);
+            
+        // We can't easily do blur in Phaser, but we can darken it to simulate the effect
+    }
+    
+    private createMenuContainer() {
+        console.log(`[MenuScene] createMenuContainer: Starting container creation for instance #${this.instanceId}`);
+        // If there's an existing container, destroy it first
+        if (this.menuContainer) {
+            console.log(`[MenuScene] createMenuContainer: Destroying existing container for instance #${this.instanceId}`);
+            this.menuContainer.destroy();
+            this.menuContainer = undefined as any;
+        }
+        
+        // Create the main container for the menu
+        this.menuContainer = this.add.container(this.cameras.main.width / 2, this.cameras.main.height / 2);
+        console.log(`[MenuScene] createMenuContainer: Created container at position for instance #${this.instanceId}:`, 
+            `x:${this.menuContainer.x}, y:${this.menuContainer.y}`);
+        
+        // Add a background rectangle for the menu - increase height from 500 to 600
+        const menuBg = this.add.rectangle(0, 0, 800, 600, 0x20160B, 0.85);
+        
+        // Add a border around the menu (simulating the fancy border from HTML)
+        const borderWidth = 12;
+        const menuBorder = this.add.rectangle(0, 0, 800 + borderWidth * 2, 600 + borderWidth * 2, 0xb89d65, 0);
+        menuBorder.setStrokeStyle(borderWidth, 0xb89d65, 1);
+        
+        // Add a close button in the top-right corner
+        const closeButton = this.add.text(380, -330, 'X', {
+            fontFamily: 'Arial',
+            fontSize: '28px',
+            color: '#b89d65'
+        }).setOrigin(0.5)
+          .setInteractive({ useHandCursor: true })
+          .on('pointerover', () => closeButton.setTint(0xffff00))
+          .on('pointerout', () => closeButton.clearTint())
+          .on('pointerdown', () => this.returnToGame());
+        
+        this.menuContainer.add([menuBorder, menuBg, closeButton]);
+    }
+    
+    private createMenuTitle() {
+        // Add the menu title - adjust Y position for taller menu
+        this.menuTitle = this.add.text(0, -350, 'AGE OF LEGENDS', {
+            fontFamily: 'Times New Roman',
             fontSize: '36px',
             color: '#f0e0c0',
-            align: 'center',
-            stroke: '#704214',
-            strokeThickness: 2
-        }).setOrigin(0.5)
-            .setShadow(0, 0, '#000000', 10, true);
+            align: 'center'
+        }).setOrigin(0.5);
+        
+        // Add shadow effect to the text
+        this.menuTitle.setShadow(0, 0, '#000000', 10, true, true);
+        
         this.menuContainer.add(this.menuTitle);
-
-        // Create menu sidebar and content area
-        this.createMenuSidebar();
-        this.createContentPanel();
-
-        // Show character section by default
-        this.updateContentPanel('Character');
-
-        // Add mouse wheel input for scrolling
-        this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-            // Only process wheel events if pointer is over content panel
-            const bounds = this.contentPanel.getBounds();
-            if (pointer.x >= bounds.left && pointer.x <= bounds.right &&
-                pointer.y >= bounds.top && pointer.y <= bounds.bottom) {
-                this.scrollContent(deltaY * 0.5);
-            }
-        });
     }
-
-    // Create stylized menu panel with fancy border
-    private createStyledMenuPanel() {
-        // Size definition
-        const panelWidth = 800;
-        const panelHeight = 500;
-
-        // Main panel background
-        this.menuPanel = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x20160b, 0.85)
-            .setOrigin(0.5);
-        this.menuContainer.add(this.menuPanel);
-
-        // Create decorative border
-        this.menuBorder = this.add.graphics();
-        this.menuBorder.lineStyle(4, 0xb89d65, 1);
-
-        // Outer border
-        this.menuBorder.strokeRect(
-            -panelWidth / 2 - 6,
-            -panelHeight / 2 - 6,
-            panelWidth + 12,
-            panelHeight + 12
-        );
-
-        // Border details - corner decorations
-        const cornerSize = 20;
-
-        // Top left corner
-        this.menuBorder.moveTo(-panelWidth / 2 - 6, -panelHeight / 2 - 6 + cornerSize);
-        this.menuBorder.lineTo(-panelWidth / 2 - 6, -panelHeight / 2 - 6);
-        this.menuBorder.lineTo(-panelWidth / 2 - 6 + cornerSize, -panelHeight / 2 - 6);
-
-        // Top right corner
-        this.menuBorder.moveTo(panelWidth / 2 + 6 - cornerSize, -panelHeight / 2 - 6);
-        this.menuBorder.lineTo(panelWidth / 2 + 6, -panelHeight / 2 - 6);
-        this.menuBorder.lineTo(panelWidth / 2 + 6, -panelHeight / 2 - 6 + cornerSize);
-
-        // Bottom right corner
-        this.menuBorder.moveTo(panelWidth / 2 + 6, panelHeight / 2 + 6 - cornerSize);
-        this.menuBorder.lineTo(panelWidth / 2 + 6, panelHeight / 2 + 6);
-        this.menuBorder.lineTo(panelWidth / 2 + 6 - cornerSize, panelHeight / 2 + 6);
-
-        // Bottom left corner
-        this.menuBorder.moveTo(-panelWidth / 2 - 6 + cornerSize, panelHeight / 2 + 6);
-        this.menuBorder.lineTo(-panelWidth / 2 - 6, panelHeight / 2 + 6);
-        this.menuBorder.lineTo(-panelWidth / 2 - 6, panelHeight / 2 + 6 - cornerSize);
-
-        // Diagonal corner accents
-        this.menuBorder.moveTo(-panelWidth / 2 - 6, -panelHeight / 2 - 6);
-        this.menuBorder.lineTo(-panelWidth / 2 - 6 + 50, -panelHeight / 2 - 6 + 50);
-
-        this.menuBorder.moveTo(panelWidth / 2 + 6, -panelHeight / 2 - 6);
-        this.menuBorder.lineTo(panelWidth / 2 + 6 - 50, -panelHeight / 2 - 6 + 50);
-
-        this.menuContainer.add(this.menuBorder);
-
-        // Add close button
-        this.closeButton = this.add.text(panelWidth / 2 - 25, -panelHeight / 2 + 15, 'X', {
-            fontFamily: 'Times New Roman, serif',
-            fontSize: '24px',
-            color: '#e0d2b4'
-        })
-            .setOrigin(0.5)
-            .setInteractive({ useHandCursor: true })
-            .on('pointerdown', () => this.closeMenu())
-            .on('pointerover', () => this.closeButton.setStyle({ color: '#ff6347' }))
-            .on('pointerout', () => this.closeButton.setStyle({ color: '#e0d2b4' }));
-        this.menuContainer.add(this.closeButton);
-    }
-
-    // Create the menu sidebar with fantasy-styled items
+    
     private createMenuSidebar() {
-        const sidebarWidth = 200; // Reduced width to prevent overlap
-        const contentWidth = this.menuPanel.width - sidebarWidth - 40;
-
-        // Starting position for the first menu item - shifted further left
-        const startX = -this.menuPanel.width / 2 + 5; // Reduced from 30 to 15
-        const startY = -this.menuPanel.height / 2 + 60;
-        const spacing = 55;
-
-        // Create sidebar items
-        this.menuItems.forEach((item, index) => {
-            // Create container for menu item
-            const menuItemContainer = this.add.container(startX, startY + (index * spacing));
-
-            // Create background for the menu item
-            const itemBg = this.add.rectangle(sidebarWidth / 2, 0, sidebarWidth, 45, 0x000000, 0)
-                .setOrigin(0.5, 0.5)
-                .setInteractive({ useHandCursor: true })
-                .on('pointerdown', () => {
-                    this.activateMenuItem(index);
-                    item.action();
-                })
-                .on('pointerover', () => {
-                    itemBg.setFillStyle(0xb89d65, 0.2);
-                    itemBg.setStrokeStyle(1, 0xb89d65, 1);
-                    menuItemContainer.x += 5;
-                })
-                .on('pointerout', () => {
-                    if (this.activeSection !== item.name) {
-                        itemBg.setFillStyle(0x000000, 0);
-                        itemBg.setStrokeStyle(1, 0xb89d65, 0);
-                    }
-                    menuItemContainer.x = startX;
-                });
-
-            // Set the active item style if this is the character menu
-            if (item.name === 'Character') {
-                itemBg.setFillStyle(0xb89d65, 0.4);
-                itemBg.setStrokeStyle(1, 0xb89d65, 1);
-            }
-
-            menuItemContainer.add(itemBg);
-
-            // Try to add icon - using placeholder rectangle if icon not found
-            let iconElement;
+        // Create a container for the sidebar
+        this.menuSidebar = this.add.container(-290, 0);
+        this.menuContainer.add(this.menuSidebar);
+        
+        // Reset menu items array to ensure we start fresh
+        this.menuItems = [];
+        
+        // Create menu items with more spacing between items
+        this.menuSections.forEach((section, index) => {
+            const menuItem = this.createMenuItem(section.icon, section.text, index);
+            // Adjust starting position and spacing between items
+            menuItem.setPosition(0, -230 + (index * 65));
+            this.menuSidebar.add(menuItem);
+            this.menuItems.push(menuItem);
+        });
+    }
+    
+    private createMenuItem(iconKey: string, text: string, index: number): GameObjects.Container {
+        const container = this.add.container(0, 0);
+        
+        // Create the menu item background
+        const itemBg = this.add.rectangle(0, 0, 220, 50, 0x000000, 0);
+        container.add(itemBg);
+        
+        // Try to add the icon, fallback to a circle if not available
+        let icon: GameObjects.Image | null = null;
+        try {
+            // Try to use the SVG icon first
+            icon = this.add.image(-80, 0, iconKey);
+        } catch (error) {
+            // Fallback to the fallback texture
             try {
-                iconElement = this.add.image(10, 0, `icon-${item.icon.toLowerCase()}`)
-                    .setDisplaySize(30, 30)
-                    .setOrigin(0, 0.5)
-                    .setTint(0xe0d2b4);
-            } catch (e) {
-                // Fallback to rectangle if image not loaded
-                iconElement = this.add.rectangle(10, 0, 30, 30, 0xe0d2b4, 0.7)
-                    .setOrigin(0, 0.5);
+                icon = this.add.image(-80, 0, `${iconKey}-fallback`);
+            } catch (fallbackError) {
+                // If all else fails, create a simple circle
+                const graphics = this.add.graphics();
+                graphics.fillStyle(0xe0d2b4, 1);
+                graphics.fillCircle(-80, 0, 15);
+                container.add(graphics);
             }
-
-            menuItemContainer.add(iconElement);
-
-            // Add text
-            const itemText = this.add.text(50, 0, item.name, {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '18px',
-                color: '#e0d2b4'
-            }).setOrigin(0, 0.5);
-
-            menuItemContainer.add(itemText);
-            this.menuOptions.push(menuItemContainer);
-            this.menuContainer.add(menuItemContainer);
-        });
+        }
+        
+        if (icon) {
+            icon.setDisplaySize(30, 30);
+            container.add(icon);
+        }
+        
+        // Add the text
+        const itemText = this.add.text(-55, 0, text, {
+            fontFamily: 'Times New Roman',
+            fontSize: '18px',
+            color: '#e0d2b4'
+        }).setOrigin(0, 0.5);
+        
+        container.add(itemText);
+        
+        // Make the entire container interactive
+        container.setInteractive(new Phaser.Geom.Rectangle(-110, -25, 220, 50), Phaser.Geom.Rectangle.Contains)
+            .on('pointerover', () => this.onMenuItemHover(container, index, true))
+            .on('pointerout', () => this.onMenuItemHover(container, index, false))
+            .on('pointerdown', () => {
+                console.log(`[MenuScene] Menu item ${text} (index ${index}) clicked for instance #${this.instanceId}`);
+                this.setActiveMenuItem(index);
+            });
+        
+        // Also make the background interactive for better hit detection
+        itemBg.setInteractive({ useHandCursor: true })
+            .on('pointerover', () => this.onMenuItemHover(container, index, true))
+            .on('pointerout', () => this.onMenuItemHover(container, index, false))
+            .on('pointerdown', () => {
+                console.log(`[MenuScene] Menu item background ${text} (index ${index}) clicked for instance #${this.instanceId}`);
+                this.setActiveMenuItem(index);
+            });
+        
+        // Store the background and other elements for later reference
+        container.setData('background', itemBg);
+        container.setData('text', itemText);
+        container.setData('index', index);
+        
+        return container;
     }
-
-    private createContentPanel() {
-        const sidebarWidth = 200; // Match reduced sidebar width
-        const padding = 20;
-        const contentWidth = this.menuPanel.width - sidebarWidth - padding * 3;
-        const contentHeight = this.menuPanel.height - padding * 2;
-
-        // Content panel positioned to the right of the sidebar
-        this.contentPanel = this.add.rectangle(
-            (-this.menuPanel.width / 2 + sidebarWidth + padding) + contentWidth / 2,
-            0,
-            contentWidth,
-            contentHeight,
-            0x382613,
-            0.7
-        ).setStrokeStyle(1, 0xb89d65, 1);
-        this.menuContainer.add(this.contentPanel);
-
-        // Create a scroll container for content at the exact position of the content panel
-        this.contentScrollArea = this.add.container(
-            this.contentPanel.x - this.contentPanel.width / 2,
-            this.contentPanel.y - this.contentPanel.height / 2
-        );
-        this.menuContainer.add(this.contentScrollArea);
-
-        // Create mask for the content area to enable scrolling
-        const graphics = this.make.graphics();
-        graphics.fillRect(
-            this.contentPanel.x - this.contentPanel.width / 2,
-            this.contentPanel.y - this.contentPanel.height / 2,
-            this.contentPanel.width,
-            this.contentPanel.height
-        );
-
-        // Create and apply the geometry mask
-        const mask = new Phaser.Display.Masks.GeometryMask(this, graphics);
-        this.contentScrollArea.setMask(mask);
-
-        // Adjust position to be relative to the content scroll area origin
-        const portraitX = this.contentPanel.width / 2;
-        const portraitY = 120;
-
-        // Add character portrait
-        this.characterPortrait = this.add.image(
-            portraitX,
-            portraitY,
-            'character-portrait'
-        ).setDisplaySize(200, 200)
-            .setOrigin(0.5, 0.5);
-
-        // Add circular mask for the portrait
-        const portraitMask = this.make.graphics({});
-        portraitMask.fillCircle(portraitX, portraitY, 100);
-        this.characterPortrait.setMask(portraitMask.createGeometryMask());
-
-        // Add a circle border around the portrait
-        const portraitBorder = this.add.graphics();
-        portraitBorder.lineStyle(5, 0xb89d65, 1);
-        portraitBorder.strokeCircle(portraitX, portraitY, 100);
-        this.contentScrollArea.add([this.characterPortrait, portraitBorder]);
-
-        // Add title text - positioned relative to the scroll area
-        this.contentTitle = this.add.text(
-            portraitX,
-            portraitY + 120,
-            'Sir Lancelot',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '32px',
-                color: '#f0e0c0',
-                align: 'center'
-            }
-        ).setOrigin(0.5)
-            .setShadow(0, 0, '#704214', 10, true);
-
-        // Add description text - positioned relative to the title
-        this.contentDescription = this.add.text(
-            portraitX,
-            portraitY + 180,
-            'Level 32 Knight\nGuild: Knights of the Round Table\n\nHealth: 245/245\nMana: 120/120\nStamina: 180/180\n\nCurrent Quest: Slay the Dragon of Blackrock Mountain',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '16px',
-                color: '#d0c0a0',
-                align: 'center',
-                lineSpacing: 10,
-                wordWrap: { width: contentWidth - 40 }
-            }
-        ).setOrigin(0.5, 0);
-
-        // Add more content to make scrolling necessary
-        let yPosition = portraitY + 350;
-
-        // Add equipment section
-        const equipmentTitle = this.add.text(
-            portraitX,
-            yPosition,
-            'EQUIPMENT',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '24px',
-                color: '#f0e0c0',
-                align: 'center'
-            }
-        ).setOrigin(0.5, 0);
-
-        yPosition += 40;
-
-        const equipmentText = this.add.text(
-            portraitX,
-            yPosition,
-            'Weapon: Excalibur (+15 Attack)\nArmor: Dragonscale Plate (+25 Defense)\nHelmet: Crown of Valor (+10 Charisma)\nGloves: Gauntlets of Might (+5 Strength)\nBoots: Swiftfoot Greaves (+10 Agility)',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '16px',
-                color: '#d0c0a0',
-                align: 'center',
-                lineSpacing: 10,
-                wordWrap: { width: contentWidth - 40 }
-            }
-        ).setOrigin(0.5, 0);
-
-        yPosition += 150;
-
-        // Add inventory section
-        const inventoryTitle = this.add.text(
-            portraitX,
-            yPosition,
-            'INVENTORY',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '24px',
-                color: '#f0e0c0',
-                align: 'center'
-            }
-        ).setOrigin(0.5, 0);
-
-        yPosition += 40;
-
-        const inventoryText = this.add.text(
-            portraitX,
-            yPosition,
-            'Health Potion x5\nMana Potion x3\nDragon Scale x1\nGold Coins x250\nSilver Pendant x1\nDragon Slaying Guide x1\nRound Table Medallion x1',
-            {
-                fontFamily: 'Times New Roman, serif',
-                fontSize: '16px',
-                color: '#d0c0a0',
-                align: 'center',
-                lineSpacing: 10,
-                wordWrap: { width: contentWidth - 40 }
-            }
-        ).setOrigin(0.5, 0);
-
-        // Add all text elements to the scroll container
-        this.contentScrollArea.add([
-            this.contentTitle,
-            this.contentDescription,
-            equipmentTitle,
-            equipmentText,
-            inventoryTitle,
-            inventoryText
-        ]);
-
-        // Calculate the total content height for scrolling limits
-        const totalContentHeight = yPosition + inventoryText.height + 40;
-
-        // Set up drag zone for scrolling
-        const zone = this.add.zone(
-            this.contentPanel.x - this.contentPanel.width / 2,
-            this.contentPanel.y - this.contentPanel.height / 2,
-            this.contentPanel.width,
-            this.contentPanel.height
-        ).setOrigin(0).setInteractive();
-
-        zone.on('pointermove', pointer => {
-            if (pointer.isDown) {
-                // Move content based on drag velocity
-                this.contentScrollArea.y += (pointer.velocity.y / 10);
-
-                // Calculate scrolling boundaries
-                // Allow scrolling up to show all content
-                const minY = this.contentPanel.y - this.contentPanel.height / 2 - (totalContentHeight - this.contentPanel.height);
-                // Don't scroll beyond the top of the panel
-                const maxY = this.contentPanel.y - this.contentPanel.height / 2;
-
-                // Clamp scrolling to keep content in view
-                this.contentScrollArea.y = Phaser.Math.Clamp(
-                    this.contentScrollArea.y,
-                    minY,
-                    maxY
-                );
-            }
-        });
-
-        // Add scroll buttons if you have them
-        if (typeof this.createScrollButtons === 'function') {
-            this.createScrollButtons();
+    
+    private onMenuItemHover(container: GameObjects.Container, index: number, isOver: boolean) {
+        if (index === this.activeMenuItem) return;
+        
+        const itemBg = container.getData('background') as GameObjects.Rectangle;
+        if (!itemBg) return;
+        
+        if (isOver) {
+            itemBg.setStrokeStyle(1, 0xb89d65, 1);
+            itemBg.setFillStyle(0xb89d65, 0.2);
+            // Add a slight movement effect
+            container.x = 5;
+        } else {
+            itemBg.setStrokeStyle(1, 0xb89d65, 0);
+            itemBg.setFillStyle(0x000000, 0);
+            // Reset position
+            container.x = 0;
         }
     }
-
-
-
-    // Create scroll buttons for content
-    private createScrollButtons() {
-        const buttonSize = 30;
-        const buttonX = this.contentPanel.x + this.contentPanel.width / 2 - 20;
-
-        // Up button
-        this.scrollUpButton = this.add.container(
-            buttonX,
-            this.contentPanel.y - this.contentPanel.height / 2 + 20
-        );
-
-        const upBg = this.add.circle(0, 0, buttonSize / 2, 0x382613, 0.9)
-            .setStrokeStyle(2, 0xb89d65, 1);
-
-        const upArrow = this.add.text(0, 0, '▲', {
-            fontSize: '16px',
-            color: '#e0d2b4'
-        }).setOrigin(0.5);
-
-        this.scrollUpButton.add([upBg, upArrow]);
-        this.scrollUpButton.setInteractive(
-            new Phaser.Geom.Circle(0, 0, buttonSize / 2),
-            Phaser.Geom.Circle.Contains
-        )
-            .on('pointerdown', () => this.scrollContent(-30))
-            .on('pointerover', () => upBg.setFillStyle(0xb89d65, 0.4))
-            .on('pointerout', () => upBg.setFillStyle(0x382613, 0.9));
-
-        // Down button
-        this.scrollDownButton = this.add.container(
-            buttonX,
-            this.contentPanel.y + this.contentPanel.height / 2 - 20
-        );
-
-        const downBg = this.add.circle(0, 0, buttonSize / 2, 0x382613, 0.9)
-            .setStrokeStyle(2, 0xb89d65, 1);
-
-        const downArrow = this.add.text(0, 0, '▼', {
-            fontSize: '16px',
-            color: '#e0d2b4'
-        }).setOrigin(0.5);
-
-        this.scrollDownButton.add([downBg, downArrow]);
-        this.scrollDownButton.setInteractive(
-            new Phaser.Geom.Circle(0, 0, buttonSize / 2),
-            Phaser.Geom.Circle.Contains
-        )
-            .on('pointerdown', () => this.scrollContent(30))
-            .on('pointerover', () => downBg.setFillStyle(0xb89d65, 0.4))
-            .on('pointerout', () => downBg.setFillStyle(0x382613, 0.9));
-
-        this.menuContainer.add([this.scrollUpButton, this.scrollDownButton]);
+    
+    private setActiveMenuItem(index: number) {
+        console.log(`[MenuScene] setActiveMenuItem: Setting active item to index ${index} for instance #${this.instanceId}`);
+        
+        // Don't do anything if the index is already active
+        if (this.activeMenuItem === index) {
+            console.log(`[MenuScene] setActiveMenuItem: Item ${index} is already active for instance #${this.instanceId}`);
+            return;
+        }
+        
+        // Deactivate the current active item
+        if (this.activeMenuItem !== null && this.menuItems && this.menuItems.length > 0 && this.activeMenuItem < this.menuItems.length && this.menuItems[this.activeMenuItem]) {
+            const prevItem = this.menuItems[this.activeMenuItem];
+            const prevBg = prevItem.getData('background') as GameObjects.Rectangle;
+            if (prevBg) {
+                prevBg.setStrokeStyle(1, 0xb89d65, 0);
+                prevBg.setFillStyle(0x000000, 0);
+            }
+            prevItem.x = 0;
+        }
+        
+        // Activate the new item
+        this.activeMenuItem = index;
+        
+        // Make sure menuItems array exists and has items before trying to access them
+        if (!this.menuItems || this.menuItems.length === 0 || index >= this.menuItems.length) {
+            console.warn(`[MenuScene] setActiveMenuItem: Cannot set active item - menu items not ready or index out of bounds for instance #${this.instanceId}`);
+            return; // Exit early if menu items aren't ready yet
+        }
+        
+        const activeItem = this.menuItems[index];
+        if (activeItem) {
+            const activeBg = activeItem.getData('background') as GameObjects.Rectangle;
+            if (activeBg) {
+                activeBg.setStrokeStyle(1, 0xb89d65, 1);
+                activeBg.setFillStyle(0xb89d65, 0.4);
+            }
+            activeItem.x = 5;
+            
+            // Fix menu content position before updating content
+            this.fixMenuContentPosition();
+            
+            // First destroy any orphaned objects that might be left from previous updates
+            this.destroyOrphanedObjects();
+            
+            // Update content based on selected menu item
+            if (this.menuSections && index < this.menuSections.length) {
+                const sectionId = this.menuSections[index].id;
+                console.log(`[MenuScene] setActiveMenuItem: Updating content to section '${sectionId}' for instance #${this.instanceId}`);
+                
+                // Update the content for the selected section
+                this.updateMenuContent(sectionId);
+                
+                // Check for orphaned objects after updating content
+                this.checkForOrphanedGameObjects();
+                this.destroyOrphanedObjects();
+            }
+        }
     }
-
-    // Handle scrolling content
-    private scrollContent(amount: number) {
-        // Calculate content height
-        const contentHeight = this.getContentHeight();
-        const visibleHeight = this.contentPanel.height;
-
-        // Only allow scrolling if content is taller than visible area
-        if (contentHeight > visibleHeight) {
-            // Calculate min/max scroll positions
-            const minY = visibleHeight / 2 - contentHeight;
-            const maxY = visibleHeight / 2;
-
-            // Update scroll position
-            const newY = Phaser.Math.Clamp(
-                this.contentScrollArea.y + amount,
-                this.contentPanel.y + minY,
-                this.contentPanel.y + maxY
+    
+    private createMenuContent() {
+        console.log(`[MenuScene] createMenuContent: Starting content creation for instance #${this.instanceId}`);
+        // Check if menuContent already exists and destroy it first
+        if (this.menuContent) {
+            console.log(`[MenuScene] createMenuContent: Destroying existing content container for instance #${this.instanceId}`);
+            this.menuContent.destroy();
+            this.menuContent = undefined as any;
+        }
+        
+        // Make sure the menuContainer exists before creating content
+        if (!this.menuContainer) {
+            console.error(`[MenuScene] createMenuContent: Menu container does not exist when creating menu content for instance #${this.instanceId}`);
+            return;
+        }
+        
+        try {
+            // Create a container for the content with a fixed position relative to the menu container
+            this.menuContent = this.add.container(120, 0);
+            console.log(`[MenuScene] createMenuContent: Created content container at position for instance #${this.instanceId}:`, 
+                `x:${this.menuContent.x}, y:${this.menuContent.y}`);
+            
+            // Add the content container to the main menu container
+            this.menuContainer.add(this.menuContent);
+            console.log(`[MenuScene] createMenuContent: Added content to menu container for instance #${this.instanceId}. Content global position:`, 
+                `x:${this.menuContent.x + this.menuContainer.x}, y:${this.menuContent.y + this.menuContainer.y}`);
+            
+            // Add a background for the content area with a distinctive border using our helper method
+            const contentBg = this.createGameObject<GameObjects.Rectangle>(
+                'rectangle',
+                0, 0,
+                [400, 550, 0x382613, 0.7],
+                this.menuContent
             );
-
-            this.contentScrollArea.y = newY;
+            contentBg.setStrokeStyle(2, 0xff0000, 1); // Red border to make it more visible for debugging
+            
+            // Add a debug label to identify this container using our helper method
+            const debugLabel = this.createGameObject<GameObjects.Text>(
+                'text',
+                0, -250,
+                ['CONTENT AREA', {
+                    fontFamily: 'Arial',
+                    fontSize: '14px',
+                    color: '#ff0000',
+                    backgroundColor: '#000000'
+                }],
+                this.menuContent
+            );
+            debugLabel.setOrigin(0.5);
+            
+            // Create character content (default view)
+            this.createCharacterContent();
+            
+            // These checks should no longer be necessary with our helper method
+            // but we'll keep them for now as a safety measure
+            this.checkForOrphanedGameObjects();
+            this.destroyOrphanedObjects();
+            
+            console.log(`[MenuScene] createMenuContent: Content creation completed for instance #${this.instanceId}`);
+        } catch (error) {
+            console.error(`[MenuScene] createMenuContent: Error creating content: ${error} for instance #${this.instanceId}`);
         }
     }
-
-    // Calculate total content height
-    private getContentHeight(): number {
-        // Find the lowest point of all content elements
-        let lowestY = 0;
-
-        this.contentScrollArea.each((child: GameObjects.GameObject) => {
-            if (child instanceof GameObjects.Text || child instanceof GameObjects.Image) {
-                const bounds = child.getBounds();
-                const bottomY = bounds.bottom - this.contentScrollArea.y;
-                if (bottomY > lowestY) {
-                    lowestY = bottomY;
+    
+    private createCharacterContent() {
+        // Make sure menuContent exists before trying to add to it
+        if (!this.menuContent) {
+            console.error(`[MenuScene] createCharacterContent: Menu content container does not exist when creating character content for instance #${this.instanceId}`);
+            return;
+        }
+        
+        console.log(`[MenuScene] createCharacterContent: Creating character content for instance #${this.instanceId}`);
+        
+        // First, clear any existing character content
+        if (this.characterPortrait) {
+            this.characterPortrait.destroy();
+            this.characterPortrait = undefined as any;
+        }
+        if (this.characterName) {
+            this.characterName.destroy();
+            this.characterName = undefined as any;
+        }
+        if (this.characterDetails) {
+            this.characterDetails.destroy();
+            this.characterDetails = undefined as any;
+        }
+        
+        // Create objects directly in the container
+        try {
+            // Create a circular mask for the character portrait
+            const mask = this.make.graphics({});
+            mask.fillStyle(0xffffff);
+            mask.fillCircle(0, -150, 100);
+            const maskImage = mask.createGeometryMask();
+            
+            // Create all objects using our helper method
+            
+            // Portrait
+            this.characterPortrait = this.createGameObject<GameObjects.Image>(
+                'image', 
+                0, -150, 
+                ['player', 0], 
+                this.menuContent
+            );
+            this.characterPortrait.setDisplaySize(200, 200).setMask(maskImage);
+            
+            // Border
+            const portraitBorder = this.createGameObject<GameObjects.Arc>(
+                'circle', 
+                0, -150, 
+                [100, 0x000000, 0], 
+                this.menuContent
+            );
+            portraitBorder.setStrokeStyle(5, 0xb89d65, 1);
+            
+            // Name
+            this.characterName = this.createGameObject<GameObjects.Text>(
+                'text', 
+                0, -20, 
+                ['Sir Lancelot', {
+                    fontFamily: 'Times New Roman',
+                    fontSize: '32px',
+                    color: '#f0e0c0',
+                    align: 'center'
+                }], 
+                this.menuContent
+            );
+            this.characterName.setOrigin(0.5).setShadow(0, 0, '#704214', 10, true, true);
+            
+            // Details
+            this.characterDetails = this.createGameObject<GameObjects.Text>(
+                'text', 
+                0, 80, 
+                ['Level 32 Knight\n' +
+                'Guild: Knights of the Round Table\n\n' +
+                'Health: 245/245\n' +
+                'Mana: 120/120\n' +
+                'Stamina: 180/180\n\n' +
+                'Current Quest: Slay the Dragon of Blackrock Mountain', 
+                {
+                    fontFamily: 'Times New Roman',
+                    fontSize: '16px',
+                    color: '#d0c0a0',
+                    align: 'center',
+                    lineSpacing: 8
+                }], 
+                this.menuContent
+            );
+            this.characterDetails.setOrigin(0.5);
+            
+            console.log(`[MenuScene] createCharacterContent: Successfully added character content to container. Total children: ${this.menuContent.length} for instance #${this.instanceId}`);
+        } catch (error) {
+            console.error(`[MenuScene] createCharacterContent: Error creating character content: ${error} for instance #${this.instanceId}`);
+        }
+    }
+    
+    private updateMenuContent(sectionId: string) {
+        console.log(`[MenuScene] updateMenuContent: Updating content for section '${sectionId}' for instance #${this.instanceId}`);
+        // Make sure menuContent exists before trying to update it
+        if (!this.menuContent) {
+            console.error(`[MenuScene] updateMenuContent: Menu content container does not exist when updating menu content for instance #${this.instanceId}`);
+            return;
+        }
+        
+        // Fix menu content position before updating
+        this.fixMenuContentPosition();
+        
+        // Log the current state of menuContent before changes
+        console.log(`[MenuScene] updateMenuContent: Content container before update for instance #${this.instanceId}:`, 
+            `position: x:${this.menuContent.x}, y:${this.menuContent.y}, ` +
+            `children count: ${this.menuContent.length}, ` +
+            `parent: ${this.menuContent.parentContainer ? 'exists' : 'none'}`);
+        
+        // Clear existing content but keep the container
+        this.menuContent.removeAll();
+        console.log(`[MenuScene] updateMenuContent: Removed all children from content container for instance #${this.instanceId}`);
+        
+        try {
+            // First, destroy any orphaned objects that might be left from previous updates
+            this.destroyOrphanedObjects();
+            
+            // Add the background again with a distinctive border using our helper method
+            const contentBg = this.createGameObject<GameObjects.Rectangle>(
+                'rectangle',
+                0, 0,
+                [400, 550, 0x382613, 0.7],
+                this.menuContent
+            );
+            contentBg.setStrokeStyle(2, 0xff0000, 1); // Red border to make it more visible for debugging
+            
+            // Add a debug label to identify this container using our helper method
+            const debugLabel = this.createGameObject<GameObjects.Text>(
+                'text',
+                0, -250,
+                [`CONTENT: ${sectionId.toUpperCase()}`, {
+                    fontFamily: 'Arial',
+                    fontSize: '14px',
+                    color: '#ff0000',
+                    backgroundColor: '#000000'
+                }],
+                this.menuContent
+            );
+            debugLabel.setOrigin(0.5);
+            
+            // Show different content based on the selected section
+            switch (sectionId) {
+                case 'character':
+                    this.createCharacterContent();
+                    break;
+                case 'inventory':
+                case 'inbox':
+                case 'create':
+                case 'skills':
+                case 'leaderboard':
+                case 'map':
+                case 'food':
+                    // For other sections, just show a placeholder text
+                    const section = this.menuSections.find(s => s.id === sectionId);
+                    
+                    // Create the title text using our helper method
+                    const title = this.createGameObject<GameObjects.Text>(
+                        'text',
+                        0, -200,
+                        [section ? section.text : sectionId, {
+                            fontFamily: 'Times New Roman',
+                            fontSize: '32px',
+                            color: '#f0e0c0',
+                            align: 'center'
+                        }],
+                        this.menuContent
+                    );
+                    title.setOrigin(0.5).setShadow(0, 0, '#704214', 10, true, true);
+                    
+                    // Create the coming soon text using our helper method
+                    const comingSoon = this.createGameObject<GameObjects.Text>(
+                        'text',
+                        0, 0,
+                        ['Coming Soon', {
+                            fontFamily: 'Times New Roman',
+                            fontSize: '24px',
+                            color: '#d0c0a0',
+                            align: 'center'
+                        }],
+                        this.menuContent
+                    );
+                    comingSoon.setOrigin(0.5);
+                    
+                    // Log the number of children in the container after adding
+                    console.log(`[MenuScene] updateMenuContent: Added placeholder content for '${sectionId}'. Total children: ${this.menuContent.length} for instance #${this.instanceId}`);
+                    break;
+            }
+            
+            // We still keep these checks for now, but they should no longer be necessary
+            // as our helper method should prevent orphaned objects
+            this.checkForOrphanedGameObjects();
+            this.destroyOrphanedObjects();
+        } catch (error) {
+            console.error(`[MenuScene] updateMenuContent: Error updating content: ${error} for instance #${this.instanceId}`);
+        }
+        
+        // Check for duplicate containers after content update
+        this.checkForDuplicateContainers();
+        
+        // Check for orphaned game objects
+        this.checkForOrphanedGameObjects();
+    }
+    
+    // Add a method to destroy orphaned objects
+    private destroyOrphanedObjects() {
+        console.log(`[MenuScene] destroyOrphanedObjects: Attempting to destroy orphaned objects for instance #${this.instanceId}`);
+        
+        // Look for objects at specific positions that might be orphaned
+        this.children.each((child) => {
+            // Skip containers we know about
+            if (child === this.menuContainer || child === this.background) {
+                return;
+            }
+            
+            // Check for objects at specific positions that match our orphaned objects
+            if (child instanceof GameObjects.Rectangle && 
+                Math.abs(child.x) < 1 && Math.abs(child.y) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Rectangle at 0,0 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            if (child instanceof GameObjects.Text && 
+                Math.abs(child.x) < 1 && Math.abs(child.y + 250) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Text at 0,-250 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            // Check for other potential orphaned objects at common positions
+            if (child instanceof GameObjects.Text && 
+                Math.abs(child.x) < 1 && Math.abs(child.y + 200) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Text at 0,-200 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            if (child instanceof GameObjects.Text && 
+                Math.abs(child.x) < 1 && Math.abs(child.y) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Text at 0,0 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            // Check for character content orphans
+            if (child instanceof GameObjects.Image && 
+                Math.abs(child.x) < 1 && Math.abs(child.y + 150) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Image at 0,-150 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            if (child instanceof GameObjects.Text && 
+                Math.abs(child.x) < 1 && Math.abs(child.y + 20) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Text at 0,-20 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+            
+            if (child instanceof GameObjects.Text && 
+                Math.abs(child.x) < 1 && Math.abs(child.y - 80) < 1) {
+                console.log(`[MenuScene] destroyOrphanedObjects: Destroying orphaned Text at 0,80 for instance #${this.instanceId}`);
+                child.destroy();
+            }
+        });
+    }
+    
+    // Add a method to properly return to the game scene
+    private returnToGame() {
+        // Get the onClose callback from the scene data if it exists
+        const data = this.scene.settings.data as MenuSceneData;
+        if (data && typeof data.onClose === 'function') {
+            data.onClose();
+        }
+        
+        // Clean up all resources before stopping the scene
+        this.destroyAllGameObjects();
+        
+        // Stop this scene
+        this.scene.stop();
+    }
+    
+    // Add a shutdown method to clean up resources when the scene is stopped
+    shutdown() {
+        console.log(`[MenuScene] shutdown: Shutting down instance #${this.instanceId}`);
+        // Clean up all game objects
+        this.destroyAllGameObjects();
+        
+        // Reset menu items array
+        this.menuItems = [];
+        
+        // Remove keyboard listeners
+        if (this.input && this.input.keyboard) {
+            this.input.keyboard.off('keydown-ESC');
+        }
+    }
+    
+    // Helper method to destroy all game objects
+    private destroyAllGameObjects() {
+        console.log(`[MenuScene] destroyAllGameObjects: Starting cleanup for instance #${this.instanceId}`);
+        
+        // Destroy all containers and their children
+        if (this.menuContainer) {
+            console.log(`[MenuScene] destroyAllGameObjects: Destroying menu container for instance #${this.instanceId}`);
+            this.menuContainer.destroy();
+            this.menuContainer = undefined as any;
+        }
+        
+        if (this.menuContent) {
+            console.log(`[MenuScene] destroyAllGameObjects: Destroying menu content for instance #${this.instanceId}`);
+            this.menuContent.destroy();
+            this.menuContent = undefined as any;
+        }
+        
+        if (this.menuSidebar) {
+            console.log(`[MenuScene] destroyAllGameObjects: Destroying menu sidebar for instance #${this.instanceId}`);
+            this.menuSidebar.destroy();
+            this.menuSidebar = undefined as any;
+        }
+        
+        if (this.background) {
+            console.log(`[MenuScene] destroyAllGameObjects: Destroying background for instance #${this.instanceId}`);
+            this.background.destroy();
+            this.background = undefined as any;
+        }
+        
+        // Clear the entire scene to be extra safe
+        const childCount = this.children.length;
+        this.children.removeAll(true);
+        console.log(`[MenuScene] destroyAllGameObjects: Removed ${childCount} children from scene for instance #${this.instanceId}`);
+    }
+    
+    // Add a diagnostic method to check for duplicate containers
+    private checkForDuplicateContainers() {
+        console.log(`[MenuScene] checkForDuplicateContainers: Checking for duplicate containers for instance #${this.instanceId}`);
+        
+        // Count all containers in the scene
+        let contentContainers = 0;
+        let contentContainerPositions: string[] = [];
+        
+        // Check all game objects in the scene
+        this.children.each((child) => {
+            if (child instanceof GameObjects.Container) {
+                // Check if this is a content container (based on position or other properties)
+                // This is a heuristic and may need adjustment based on your specific implementation
+                if (child !== this.menuContainer && child !== this.menuSidebar && 
+                    child !== this.menuContent && !this.menuItems.includes(child)) {
+                    contentContainers++;
+                    contentContainerPositions.push(`x:${child.x}, y:${child.y}`);
+                    console.log(`[MenuScene] Found potential duplicate container for instance #${this.instanceId}:`, 
+                        `position: x:${child.x}, y:${child.y}, ` +
+                        `children: ${(child as GameObjects.Container).length}, ` +
+                        `parent: ${child.parentContainer ? 'exists' : 'none'}`);
                 }
             }
         });
-
-        return lowestY + 20; // Add padding
-    }
-
-    // Activate a menu item and update styling
-    private activateMenuItem(index: number) {
-        // Update all menu items to non-active state
-        this.menuOptions.forEach((option, i) => {
-            const bg = option.getAt(0) as GameObjects.Rectangle;
-            bg.setFillStyle(0x000000, 0);
-            bg.setStrokeStyle(1, 0xb89d65, 0);
-        });
-
-        // Set selected item to active
-        const activeBg = this.menuOptions[index].getAt(0) as GameObjects.Rectangle;
-        activeBg.setFillStyle(0xb89d65, 0.4);
-        activeBg.setStrokeStyle(1, 0xb89d65, 1);
-
-        // Update active section
-        this.activeSection = this.menuItems[index].name;
-    }
-
-    // Update content panel based on selected menu item
-    private updateContentPanel(section: string) {
-        // Reset scroll position
-        this.contentScrollArea.y = this.contentPanel.y;
-
-        // Update content based on section
-        switch (section) {
-            case 'Character':
-                this.contentTitle.setText('Sir Lancelot');
-                this.contentDescription.setText(
-                    'Level 32 Knight\nGuild: Knights of the Round Table\n\n' +
-                    'Health: 245/245\nMana: 120/120\nStamina: 180/180\n\n' +
-                    'Current Quest: Slay the Dragon of Blackrock Mountain'
-                );
-                this.characterPortrait.setVisible(true);
-                break;
-
-            case 'Inventory':
-                this.contentTitle.setText('Inventory');
-                this.contentDescription.setText(
-                    'Gold: 1,250\nWeight: 45/100\n\n' +
-                    'Equipped:\n- Excalibur (+25 ATK)\n- Shield of Faith (+18 DEF)\n- Royal Armor (+30 DEF)\n\n' +
-                    'Consumables:\n- Health Potion x5\n- Mana Potion x3\n- Stamina Potion x2\n\n' +
-                    'Materials:\n- Dragon Scale x3\n- Enchanted Wood x7\n- Pure Gold x2\n- Magic Essence x12\n\n' +
-                    'Quest Items:\n- Ancient Relic\n- Map to Dragon\'s Lair'
-                );
-                this.characterPortrait.setVisible(false);
-                break;
-
-            case 'Skills':
-                this.contentTitle.setText('Skills');
-                this.contentDescription.setText(
-                    'Skill Points: 3\n\n' +
-                    'Combat Skills:\n- Swordsmanship: Level 5\n- Shield Mastery: Level 4\n- Charge: Level 3\n- Dual Wielding: Level 2\n- Counter Attack: Level 3\n\n' +
-                    'Magic Skills:\n- Holy Light: Level 2\n- Divine Protection: Level 3\n- Healing Touch: Level 1\n- Elemental Resistance: Level 2\n\n' +
-                    'Passive Skills:\n- Endurance: Level 4\n- Leadership: Level 3\n- Perception: Level 2\n- Charisma: Level 3\n- Strength: Level 4\n- Agility: Level 3'
-                );
-                this.characterPortrait.setVisible(false);
-                break;
-            // New test case for scrollable content
-            case 'TestScroll':
-                this.contentTitle.setText('Test Scrollable Container');
-                this.contentDescription.setText(
-                    'This is sample text to test the scrollable container. ' +
-                    'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
-                    'Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ' +
-                    'Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ' +
-                    'Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. ' +
-                    'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n' +
-                    'Additional text to ensure that the content exceeds the visible area. ' +
-                    'Praesent sapien massa, convallis a pellentesque nec, egestas non nisi. ' +
-                    'Curabitur arcu erat, accumsan id imperdiet et, porttitor at sem. ' +
-                    'Sed porttitor lectus nibh. Donec sollicitudin molestie malesuada.'
-                );
-                this.characterPortrait.setVisible(false);
-                break;
-            default:
-                this.contentTitle.setText(`${section}`);
-                this.contentDescription.setText(`${section} feature coming soon!\n\nThis panel now supports scrolling for longer content. Try the scroll buttons or use your mouse wheel to scroll through content that doesn't fit within the visible area.\n\nAdditional ${section} features will be implemented in the next update.`);
-                this.characterPortrait.setVisible(false);
+        
+        console.log(`[MenuScene] checkForDuplicateContainers: Found ${contentContainers} potential duplicate containers for instance #${this.instanceId}`);
+        if (contentContainers > 0) {
+            console.log(`[MenuScene] Positions for instance #${this.instanceId}:`, contentContainerPositions.join(' | '));
+        }
+        
+        // Also check if our tracked menuContent is properly added to menuContainer
+        if (this.menuContent && this.menuContainer) {
+            const isInContainer = this.menuContainer.getAll().includes(this.menuContent);
+            console.log(`[MenuScene] menuContent is ${isInContainer ? '' : 'NOT '}properly added to menuContainer for instance #${this.instanceId}`);
         }
     }
-
-    closeMenu() {
-        // Return to the game scene
-        if (this.scene.isActive('Game')) {
-            this.scene.resume('Game');
-        }
-        this.scene.sleep();
-    }
-
-    // Menu action methods
-    showInventory() {
-        this.updateContentPanel('Inventory');
-
-        // Original functionality
-        if (this.scene.isActive('Game')) {
-            const gameScene = this.scene.get('Game') as any;
-
-            const inventoryData = {
-                slots: gameScene.inventorySystem?.getAllItems() || [],
-                equipment: gameScene.inventorySystem?.getEquippedItems() || [],
-                weightCapacity: gameScene.inventorySystem?.getWeightCapacity() || 100,
-                gold: gameScene.inventorySystem?.getGold() || 0
-            };
-
-            // Instead of launching scene, we'll just update our content panel
-            // but keep the original behavior commented here for reference
-            /* 
-            this.closeMenu();
-            gameScene.scene.pause();
-            gameScene.scene.launch('InventoryScene', { game: gameScene, inventoryData });
-            */
-        }
-    }
-
-    showMessaging() {
-        this.updateContentPanel('Messaging');
-    }
-
-    showCraft() {
-        this.updateContentPanel('Craft');
-    }
-
-    showCharacter() {
-        this.updateContentPanel('Character');
-
-        // Get actual player data if available
-        if (this.scene.isActive('Game')) {
-            const gameScene = this.scene.get('Game') as any;
-
-            if (gameScene.playerStats) {
-                const health = gameScene.playerStats.health || 245;
-                const maxHealth = gameScene.playerStats.maxHealth || 245;
-                const level = gameScene.playerStats.level || 32;
-
-                // Update with real player data
-                this.contentDescription.setText(
-                    `Level ${level} Knight\nGuild: Knights of the Round Table\n\n` +
-                    `Health: ${health}/${maxHealth}\nMana: 120/120\nStamina: 180/180\n\n` +
-                    'Current Quest: Slay the Dragon of Blackrock Mountain'
-                );
+    
+    // Add a method to fix any positioning issues with the menu content
+    private fixMenuContentPosition() {
+        console.log(`[MenuScene] fixMenuContentPosition: Checking menu content position for instance #${this.instanceId}`);
+        
+        // Check if menuContent exists and is properly positioned
+        if (this.menuContent && this.menuContainer) {
+            // Check if menuContent is a child of menuContainer
+            const isInContainer = this.menuContainer.getAll().includes(this.menuContent);
+            
+            if (!isInContainer) {
+                console.log(`[MenuScene] fixMenuContentPosition: Fixing menu content position - adding to container for instance #${this.instanceId}`);
+                
+                // If menuContent is not in the container, add it
+                this.menuContainer.add(this.menuContent);
+                
+                // Make sure it's at the correct position relative to the container
+                this.menuContent.x = 120;
+                this.menuContent.y = 0;
+                
+                console.log(`[MenuScene] fixMenuContentPosition: Fixed position for instance #${this.instanceId}:`, 
+                    `x:${this.menuContent.x}, y:${this.menuContent.y}, ` +
+                    `global: x:${this.menuContent.x + this.menuContainer.x}, y:${this.menuContent.y + this.menuContainer.y}`);
             }
         }
     }
 
-    showMap() {
-        this.updateContentPanel('Map');
-    }
-
-    showSkills() {
-        this.updateContentPanel('Skills');
-    }
-
-    showLeaderboard() {
-        this.updateContentPanel('Leaderboard');
-    }
-
-    // Creates a flag for the player (implementation kept from original)
-    createFlag() {
-        console.log('Creating flag from craft menu');
-
-        // Get reference to the Game scene
-        const gameScene = this.scene.get('Game') as any;
-
-        // Call the placePlayerFlag method in the Game scene
-        if (gameScene && typeof gameScene.placePlayerFlag === 'function') {
-            gameScene.placePlayerFlag();
-
-            // Show confirmation
-            const notification = this.add.text(0, this.contentPanel.height / 2 - 50, 'Flag created at your position!', {
-                fontFamily: 'Arial',
-                fontSize: '18px',
-                color: '#00ff00',
-                backgroundColor: '#333333',
-                padding: { x: 15, y: 10 }
-            }).setOrigin(0.5);
-
-            this.menuContainer.add(notification);
-
-            // Remove the notification after 2 seconds
-            this.time.delayedCall(2000, () => {
-                notification.destroy();
-            });
+    // Add a method to check for orphaned game objects
+    private checkForOrphanedGameObjects() {
+        console.log(`[MenuScene] checkForOrphanedGameObjects: Checking for orphaned game objects for instance #${this.instanceId}`);
+        
+        // Count all game objects directly in the scene (not in containers)
+        let orphanedObjects = 0;
+        let orphanedPositions: string[] = [];
+        
+        // Check all game objects in the scene
+        this.children.each((child) => {
+            // Skip containers we know about
+            if (child === this.menuContainer || child === this.background) {
+                return;
+            }
+            
+            // Check if this is an orphaned object
+            if (child instanceof GameObjects.Text || 
+                child instanceof GameObjects.Rectangle || 
+                child instanceof GameObjects.Image) {
+                orphanedObjects++;
+                orphanedPositions.push(`${child.constructor.name} at x:${child.x}, y:${child.y}`);
+                console.log(`[MenuScene] Found orphaned ${child.constructor.name} for instance #${this.instanceId}:`, 
+                    `position: x:${child.x}, y:${child.y}, ` +
+                    `visible: ${child.visible}, ` +
+                    `alpha: ${child.alpha}`);
+                
+                // Make it obvious in the scene for debugging
+                if (child instanceof GameObjects.Rectangle) {
+                    child.setStrokeStyle(4, 0x00ff00, 1); // Green border
+                } else if (child instanceof GameObjects.Text) {
+                    child.setBackgroundColor('#00ff00'); // Green background
+                    child.setText(`ORPHANED: ${child.text}`);
+                } else if (child instanceof GameObjects.Image) {
+                    child.setTint(0x00ff00); // Green tint
+                }
+            }
+        });
+        
+        console.log(`[MenuScene] checkForOrphanedGameObjects: Found ${orphanedObjects} orphaned objects for instance #${this.instanceId}`);
+        if (orphanedObjects > 0) {
+            console.log(`[MenuScene] Orphaned objects for instance #${this.instanceId}:`, orphanedPositions.join(' | '));
         }
     }
 
-    // Temporarily show a notification for unimplemented features
-    showNotImplemented(feature: string) {
-        // Display a message indicating the feature is not yet implemented
-        const notification = this.add.text(0, this.contentPanel.height / 2 - 50, `${feature} feature coming soon!`, {
-            fontFamily: 'Times New Roman, serif',
-            fontSize: '18px',
-            color: '#ffffff',
-            backgroundColor: '#333333',
-            padding: { x: 15, y: 10 }
-        }).setOrigin(0.5);
-
-        this.menuContainer.add(notification);
-
-        // Remove the notification after 2 seconds
-        this.time.delayedCall(2000, () => {
-            notification.destroy();
-        });
+    // Helper method to create game objects that are properly added to containers
+    private createGameObject<T extends GameObjects.GameObject>(
+        type: string,
+        x: number,
+        y: number,
+        args: any[] = [],
+        container?: GameObjects.Container
+    ): T {
+        let gameObject: T;
+        
+        // Create the game object based on its type
+        switch (type) {
+            case 'rectangle':
+                gameObject = this.add.rectangle(x, y, ...args) as unknown as T;
+                break;
+            case 'text':
+                gameObject = this.add.text(x, y, args[0], args[1]) as unknown as T;
+                break;
+            case 'image':
+                gameObject = this.add.image(x, y, args[0], args[1]) as unknown as T;
+                break;
+            case 'circle':
+                gameObject = this.add.circle(x, y, ...args) as unknown as T;
+                break;
+            default:
+                throw new Error(`Unsupported game object type: ${type}`);
+        }
+        
+        // Remove from scene and add to container if specified
+        if (container) {
+            this.children.remove(gameObject);
+            container.add(gameObject);
+        }
+        
+        return gameObject;
     }
 }

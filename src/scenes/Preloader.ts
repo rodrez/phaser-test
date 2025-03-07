@@ -36,6 +36,7 @@ export class Preloader extends Scene
         this.load.setPath('assets');
 
         this.load.image('logo', 'logo.png');
+        this.load.image('background', 'bg.png');
         
         // Load environment assets
         this.load.image('tree', '/environment/tree.png');
@@ -44,6 +45,9 @@ export class Preloader extends Scene
             frameWidth: 51, 
             frameHeight: 87 
         });
+        
+        // Load wood chip particle for tree chopping
+        this.load.image('wood-chip', '/environment/wood-chip.png');
 
         // Load fruits spritesheet
         this.load.spritesheet('fruits', '/items/fruits.png', {
@@ -75,6 +79,7 @@ export class Preloader extends Scene
             this.load.svg('icon-map', '/icons/map.svg');
             this.load.svg('icon-inbox', '/icons/messaging.svg');
             this.load.svg('icon-skills', '/icons/skills.svg');
+            this.load.svg('icon-axe', '/icons/axe.svg');
             
             console.log('Context menu icons loaded successfully');
         } catch (error) {
@@ -98,6 +103,7 @@ export class Preloader extends Scene
             'icon-stats', 'icon-inventory', 'icon-levelup', 'icon-rest',
             'icon-examine', 'icon-travel', 'icon-marker', 'icon-close', 'icon-character',
             'icon-craft', 'icon-leaderboard', 'icon-map', 'icon-messaging', 'icon-skills',
+            'icon-axe',
         ];
         
         // Create a fallback texture for each icon

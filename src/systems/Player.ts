@@ -46,7 +46,7 @@ export class PlayerSystem {
         if (this.player && this.player.body) {
             this.player.setCollideWorldBounds(true);
             this.player.setBounce(0.1);
-            this.player.setDepth(100); // Ensure player is on top of map elements
+            this.player.setDepth(800); // Increased depth to ensure player is above trees but below UI
             this.player.body.setSize(48, 48);
             (this.player.body as any).maxSpeed = 300;
         }
@@ -238,58 +238,45 @@ export class PlayerSystem {
             moving = true;
         }
 
-        // Update player position directly if it has moved
-        if (newX !== currentX || newY !== currentY) {
-            // Clear any duplicate sprites at the old position before moving
-            this.player.setPosition(newX, newY);
-            
-            // Make sure player is always at the correct depth
-            this.player.setDepth(100);
-        }
+        // Get camera and screen info for boundary checking
+        const camera = this.scene.cameras.main;
+        const screenWidth = camera.width;
+        const screenHeight = camera.height;
         
-        // Apply world bounds manually
-        const bounds = (this.scene as any).physics.world.bounds;
-        if (bounds) {
-            if (this.player.x < bounds.x + this.player.width/2) {
-                this.player.x = bounds.x + this.player.width/2;
-            }
-            if (this.player.x > bounds.right - this.player.width/2) {
-                this.player.x = bounds.right - this.player.width/2;
-            }
-            if (this.player.y < bounds.y + this.player.height/2) {
-                this.player.y = bounds.y + this.player.height/2;
-            }
-            if (this.player.y > bounds.bottom - this.player.height/2) {
-                this.player.y = bounds.bottom - this.player.height/2;
-            }
-        }
+        // Calculate safe boundaries to ensure player stays within visible area
+        // Using padding to ensure player stays fully visible (not partially cut off)
+        const padding = 32; // Adjust based on player sprite size
+        const minX = padding;
+        const maxX = screenWidth - padding;
+        const minY = padding;
+        const maxY = screenHeight - padding;
         
+        // Apply bounds - ensure player stays within visible screen area
+        newX = Phaser.Math.Clamp(newX, minX, maxX);
+        newY = Phaser.Math.Clamp(newY, minY, maxY);
+
         // Apply navigation circle boundary
         const mapSystem = (this.scene as any).mapSystem;
         if (mapSystem && mapSystem.navigationCircleGraphics) {
-            const screenWidth = this.scene.scale.width;
             const screenCenterX = screenWidth / 2;
-            const screenCenterY = this.scene.scale.height / 2;
+            const screenCenterY = screenHeight / 2;
             
-            // Navigation circle radius (same as used in MapSystem)
-            const screenRadius = screenWidth * 0.4;
+            // Navigation circle radius (get from MapSystem if possible, or use the value in the graphics)
+            const screenRadius = Math.min(screenWidth, screenHeight) * 0.38; // Match the value in MapSystem
             
-            // Calculate distance from center to player
-            const dx = this.player.x - screenCenterX;
-            const dy = this.player.y - screenCenterY;
+            // Calculate distance from center to the new position
+            const dx = newX - screenCenterX;
+            const dy = newY - screenCenterY;
             const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
             
-            // If player is outside the circle, move them back to the edge
+            // If the new position would be outside the circle, adjust it
             if (distanceFromCenter > screenRadius) {
-                // Get the angle from center to player
+                // Get the angle from center to new position
                 const angle = Math.atan2(dy, dx);
                 
                 // Calculate point on the circle edge
-                const edgeX = screenCenterX + Math.cos(angle) * screenRadius;
-                const edgeY = screenCenterY + Math.sin(angle) * screenRadius;
-                
-                // Set player position to the edge
-                this.player.setPosition(edgeX, edgeY);
+                newX = screenCenterX + Math.cos(angle) * screenRadius;
+                newY = screenCenterY + Math.sin(angle) * screenRadius;
                 
                 // Visual feedback when hitting the boundary
                 if (this.player.tint !== 0xff0000) {  // If not already showing feedback
@@ -305,21 +292,22 @@ export class PlayerSystem {
                 }
             }
         }
+
+        // Update player position directly if it has moved
+        if (newX !== currentX || newY !== currentY) {
+            // Clear any duplicate sprites at the old position before moving
+            this.player.setPosition(newX, newY);
+            
+            // Make sure player is always at the correct depth
+            this.player.setDepth(100);
+        }
         
-        // Set to idle animation if not moving
+        // If the player isn't moving, play the idle animation
         if (!moving && this.player.anims) {
             this.player.anims.play('player-idle', true);
         }
         
-        // Reset velocity to prevent any physics from taking effect
-        this.player.setVelocity(0, 0);
-        
-        // Reset acceleration if it's a dynamic body
-        if (this.player.body && 'acceleration' in this.player.body) {
-            (this.player.body as Phaser.Physics.Arcade.Body).acceleration.set(0, 0);
-        }
-
-        // Update health bar position if it exists
+        // Update the health bar position to follow the player
         this.updateHealthBarPosition();
     }
 
@@ -445,5 +433,38 @@ export class PlayerSystem {
         const stats = (this.scene as any).playerStats;
         stats.health = Math.min(stats.health + amount, stats.maxHealth);
         this.updateHealthBar();
+    }
+
+    /**
+     * Ensures the player is correctly positioned and visible.
+     * Call this after scene changes or when player visibility changes.
+     */
+    ensureCorrectPlayerState(): void {
+        if (!this.player || !this.player.active) {
+            return;
+        }
+
+        // Ensure player has the correct depth
+        this.player.setDepth(100);
+        
+        // Make sure player bounds are constrained correctly
+        const bounds = (this.scene as any).physics.world.bounds;
+        if (bounds) {
+            if (this.player.x < bounds.x + this.player.width/2) {
+                this.player.x = bounds.x + this.player.width/2;
+            }
+            if (this.player.x > bounds.right - this.player.width/2) {
+                this.player.x = bounds.right - this.player.width/2;
+            }
+            if (this.player.y < bounds.y + this.player.height/2) {
+                this.player.y = bounds.y + this.player.height/2;
+            }
+            if (this.player.y > bounds.bottom - this.player.height/2) {
+                this.player.y = bounds.bottom - this.player.height/2;
+            }
+        }
+        
+        // Update health bar position if it exists
+        this.updateHealthBarPosition();
     }
 }

@@ -87,6 +87,10 @@ export class Game extends Scene {
     create() {
         this.camera = this.cameras.main;
 
+        // Set camera to center of the game world
+        const { width, height } = this.scale;
+        this.camera.centerOn(width / 2, height / 2);
+
         // Initialize the entities group (using physics group for player collision)
         this.entitiesGroup = this.physics.add.group();
 
@@ -114,7 +118,7 @@ export class Game extends Scene {
         this.itemSystem = new ItemSystem(this);
         
         // Add overlay message
-        this.msg_text = this.add.text(512, 384, 'Leaflet Map View\nClick to start playing', {
+        this.msg_text = this.add.text(width / 2, height / 2, 'Leaflet Map View\nClick to start playing', {
             fontFamily: 'Arial Black',
             fontSize: '32px',
             color: '#ffffff',
@@ -154,14 +158,12 @@ export class Game extends Scene {
         // Make sure player is visible and on top of all map elements
         this.player.setDepth(100);
         
-        // Set up collision between player and world boundaries
-        const { width, height } = this.scale;
-        this.physics.world.setBounds(0, 0, width * 2, height * 2);
+        // Set up collision between player and world boundaries - using the actual screen size
+        this.physics.world.setBounds(0, 0, width, height);
         this.player.setCollideWorldBounds(true);
         
-        // DO NOT have the camera follow the player for a map-based game
-        // Instead, keep the camera centered on the initial view
-        this.cameras.main.setScroll(0, 0);
+        // Center camera on the game world
+        this.cameras.main.setBounds(0, 0, width, height);
         
         // Initialize the context menu system
         this.contextMenu = new ContextMenuSystem(this, {
@@ -252,11 +254,32 @@ export class Game extends Scene {
      * Open the menu scene
      */
     openMenu() {
+        // Hide the player while menu is open
+        if (this.player) {
+            this.player.setVisible(false);
+        }
+        
         // Pause the current scene
         this.scene.pause();
         
+        // Stop the MenuScene if it's already running to prevent duplication
+        if (this.scene.isActive('MenuScene') || this.scene.isPaused('MenuScene')) {
+            this.scene.stop('MenuScene');
+        }
+        
         // Launch the menu scene
-        this.scene.launch('MenuScene');
+        this.scene.launch('MenuScene', { 
+            onClose: () => {
+                console.log('Menu closed, restoring player visibility');
+                // Make sure player is visible again when menu closes
+                if (this.player) {
+                    this.player.setVisible(true);
+                }
+                
+                // Resume the game scene
+                this.scene.resume();
+            }
+        });
     }
 
     /**
@@ -297,6 +320,28 @@ export class Game extends Scene {
         
         // Create menu button
         this.createMenuButton();
+        
+        // Add a couple of flags as examples
+        // One at the center
+        const centerFlag = this.flagSystem.createFlag(
+            this.mapSystem.leafletMap.getCenter().lat,
+            this.mapSystem.leafletMap.getCenter().lng,
+            true,
+            "Home Base"
+        );
+        
+        // And one a little distance away
+        const offsetFlag = this.flagSystem.createFlag(
+            this.mapSystem.leafletMap.getCenter().lat + 0.0005,
+            this.mapSystem.leafletMap.getCenter().lng + 0.0005,
+            false,
+            "Exploration Point"
+        );
+        
+        // Setup event listeners for flag system
+        this.setupFlagEvents();
+        
+        console.log('Game started! 🎮');
     }
 
     /**
@@ -371,6 +416,68 @@ export class Game extends Scene {
         
         // Sync aggression state from player stats to UI
         this.uiSystem.setAggression(this.playerStats.isAggressive);
+        
+        // Ensure the map stays centered and all elements remain in the visible area
+        this.ensureElementsInView();
+    }
+
+    /**
+     * Ensure all map elements stay within the visible area
+     */
+    ensureElementsInView(): void {
+        // Get camera and world boundaries
+        const { width, height } = this.scale;
+        
+        // Check if any important entities are outside the visible area
+        const entities = this.entitiesGroup.getChildren();
+        
+        // Define screen center and navigation circle radius
+        const screenCenterX = width / 2;
+        const screenCenterY = height / 2;
+        const screenRadius = Math.min(width, height) * 0.38; // Same as in MapSystem
+        
+        // Process each entity to ensure it's in the visible area
+        entities.forEach((entity: Phaser.GameObjects.GameObject) => {
+            if (entity instanceof Phaser.Physics.Arcade.Sprite) {
+                // Get current position
+                const x = entity.x;
+                const y = entity.y;
+                
+                // Calculate padding based on entity size
+                const padding = Math.max(entity.width, entity.height) / 2;
+                
+                // Define safe area boundaries
+                const minX = padding;
+                const maxX = width - padding;
+                const minY = padding;
+                const maxY = height - padding;
+                
+                // Clamp entity position to keep it in view
+                let newX = Phaser.Math.Clamp(x, minX, maxX);
+                let newY = Phaser.Math.Clamp(y, minY, maxY);
+                
+                // Also apply navigation circle boundary
+                // Calculate distance from center to the entity
+                const dx = newX - screenCenterX;
+                const dy = newY - screenCenterY;
+                const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+                
+                // If entity is outside the circle, adjust its position
+                if (distanceFromCenter > screenRadius) {
+                    // Get the angle from center to entity
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // Calculate point on the circle edge
+                    newX = screenCenterX + Math.cos(angle) * screenRadius;
+                    newY = screenCenterY + Math.sin(angle) * screenRadius;
+                }
+                
+                // Move entity if it was outside bounds
+                if (x !== newX || y !== newY) {
+                    entity.setPosition(newX, newY);
+                }
+            }
+        });
     }
 
     /**
@@ -543,47 +650,42 @@ export class Game extends Scene {
      * Place a flag at the specified environment position
      */
     placeEnvironmentFlag(x: number, y: number): void {
-        console.log(`Placing environment flag at screen coordinates: [${x}, ${y}]`);
-        
-        // Convert screen coordinates to map coordinates
-        const worldPoint = this.cameras.main.getWorldPoint(x, y);
-        console.log(`World point: [${worldPoint.x}, ${worldPoint.y}]`);
-        
+        // Convert screen position to map coordinates
         const mapPosition = this.mapSystem.screenToMapCoordinates(x, y);
-        
         if (!mapPosition) {
-            console.warn('Cannot place flag: Unable to convert screen coordinates to map position');
-            this.uiSystem.showMessage('Cannot place flag at this location', 'error');
+            console.warn('⚠️ Cannot place environment flag: Invalid map position');
+            this.uiSystem.showMessage('Cannot place flag: Invalid position', 'warning');
             return;
         }
         
-        console.log(`Map position: [${mapPosition.lat}, ${mapPosition.lon}]`);
-        
-        // Check if flag system is initialized
-        if (!this.flagSystem) {
-            console.warn('Cannot place flag: Flag system not initialized');
-            return;
-        }
-        
-        // Create the flag
+        // Try to create a flag at this position
         const flagId = this.flagSystem.createFlag(
             mapPosition.lat, 
-            mapPosition.lon, 
-            true, // Player flag
-            `Environment Flag ${this.playerStats.flags.length + 1}`
+            mapPosition.lon,
+            false, // Not a player flag
+            `Marker ${Date.now().toString().slice(-4)}` // Simple name with timestamp
         );
         
-        // Add to player stats for tracking
-        this.playerStats.flags.push({
-            id: flagId,
-            name: `Environment Flag ${this.playerStats.flags.length + 1}`,
-            lat: mapPosition.lat,
-            lon: mapPosition.lon,
-            createdAt: new Date()
-        });
-        
-        // Show notification
-        this.uiSystem.showMessage('Flag placed at selected position!', 'success');
+        // Check if flag placement was successful
+        if (flagId) {
+            console.log('🚩 Environment flag placed at:', mapPosition);
+            
+            // Play flag placement sound
+            try {
+                this.sound.play('place-flag', { volume: 0.5 });
+            } catch (error) {
+                // Fallback sound
+                try {
+                    this.sound.play('pickup', { volume: 0.5 });
+                } catch (e) {
+                    console.warn('Sound not available for flag placement', e);
+                }
+            }
+            
+            // Show success message
+            this.uiSystem.showMessage('Flag placed successfully!', 'success', 2000);
+        }
+        // No need for else block - event handler deals with failures
     }
     
     /**
@@ -675,69 +777,66 @@ Gold: ${this.playerStats.gold}`;
      * Place a flag at the player's current position
      */
     placePlayerFlag(): void {
-        console.log('🚩 Placing flag at player position');
+        // Get exact player position on the map using player's screen coordinates
+        const playerX = this.player.x;
+        const playerY = this.player.y;
         
-        // Get player's exact position in the game world
-        if (!this.player) {
-            console.warn('Cannot place flag: Player not initialized');
-            return;
-        }
+        // Log player screen position for debugging
+        console.log('Player screen position for flag placement:', { playerX, playerY });
         
-        console.log('Player game position:', {
-            x: this.player.x,
-            y: this.player.y,
-            screenWidth: this.scale.width,
-            screenHeight: this.scale.height,
-            depth: this.player.depth
-        });
+        // Convert player's screen position to map coordinates
+        let playerPosition = this.mapSystem.getExactPlayerPosition(playerX, playerY);
         
-        // Get the exact player position using game world coordinates
-        let playerPos = this.mapSystem.getExactPlayerPosition(this.player.x, this.player.y);
-        
-        // Fallback to navigation circle position if necessary
-        if (!playerPos) {
-            console.warn('⚠️ Could not get exact player position, falling back to navigation position');
-            playerPos = this.mapSystem.getPlayerPosition();
+        // If we couldn't get the exact position, fall back to the navigation circle center
+        if (!playerPosition) {
+            console.warn('⚠️ Could not get exact player position, falling back to navigation center');
+            playerPosition = this.mapSystem.getPlayerPosition();
             
-            if (!playerPos) {
+            if (!playerPosition) {
                 console.warn('⚠️ Cannot place flag: Player position unknown');
+                this.uiSystem.showMessage('Cannot place flag: Unknown position', 'warning');
                 return;
             }
         }
         
-        // Get a reference to the flag system
-        if (!this.flagSystem) {
-            console.warn('⚠️ Cannot place flag: Flag system not initialized');
-            return;
-        }
+        // Log the calculated map position
+        console.log('Player map position for flag placement:', playerPosition);
         
-        // Generate flag name
-        const flagName = `Player Flag ${this.playerStats.flags.length + 1}`;
-        
-        console.log(`🚩 Creating flag "${flagName}" at position:`, playerPos);
-        
-        // Create the flag at player's position
+        // Try to place a flag at the player's position
         const flagId = this.flagSystem.createFlag(
-            playerPos.lat, 
-            playerPos.lon, 
-            true, // Player flag
-            flagName
+            playerPosition.lat,
+            playerPosition.lon,
+            true, // This is a player flag
+            `Flag ${Date.now().toString().slice(-4)}` // Generate a simple name
         );
         
-        // Add to player stats for tracking
-        this.playerStats.flags.push({
-            id: flagId,
-            name: flagName,
-            lat: playerPos.lat,
-            lon: playerPos.lon,
-            createdAt: new Date()
-        });
-        
-        // Visual feedback - brief flash indicating successful placement
-        this.cameras.main.flash(300, 255, 85, 0, false); // Orange flash, no force parameter
-        
-        // Show notification
-        this.uiSystem.showMessage(`Flag "${flagName}" placed at your position!`, 'success');
+        // Check if flag placement was successful
+        if (flagId) {
+            console.log('🚩 Player flag placed at:', playerPosition);
+            
+            // Play flag placement sound
+            try {
+                this.sound.play('place-flag', { volume: 0.5 });
+            } catch (error) {
+                // Fallback sound if the flag placement sound isn't available
+                try {
+                    this.sound.play('pickup', { volume: 0.5 });
+                } catch (e) {
+                    console.warn('Sound not available for flag placement', e);
+                }
+            }
+            
+            // Show success message
+            this.uiSystem.showMessage('Flag placed successfully!', 'success', 2000);
+            
+            // Add flag to player stats
+            this.playerStats.flags.push({
+                id: flagId,
+                position: [playerPosition.lat, playerPosition.lon],
+                name: `Flag ${Date.now().toString().slice(-4)}`
+            });
+        }
+        // No need for an else block as the flagSystem will emit 'flag-placement-failed' if it fails
     }
 
     /**
@@ -751,43 +850,209 @@ Gold: ${this.playerStats.gold}`;
             const treeType = tree.texture.key;
             const treeName = treeType === 'spruce-tree' ? 'Spruce Tree' : 'Oak Tree';
             
-            // Random messages for tree interaction
-            const messages = [
-                `You found a ${treeName}!`,
-                `A majestic ${treeName} stands before you.`,
-                `This ${treeName} looks healthy.`,
-                `Birds are nesting in this ${treeName}.`
+            // Show context menu for the tree
+            const menuOptions = [
+                {
+                    text: 'Examine',
+                    callback: () => {
+                        // Random messages for tree interaction
+                        const messages = [
+                            `You found a ${treeName}!`,
+                            `A majestic ${treeName} stands before you.`,
+                            `This ${treeName} looks healthy.`,
+                            `Birds are nesting in this ${treeName}.`
+                        ];
+                        
+                        // Select a random message
+                        const message = messages[Math.floor(Math.random() * messages.length)];
+                        
+                        // Show notification
+                        const treeMessage = this.add.text(tree.x, tree.y - 50, message, {
+                            fontSize: '16px',
+                            color: '#ffffff',
+                            stroke: '#000000',
+                            strokeThickness: 3,
+                            align: 'center'
+                        }).setOrigin(0.5);
+                        
+                        // Add a nice fade out effect
+                        this.tweens.add({
+                            targets: treeMessage,
+                            y: treeMessage.y - 30,
+                            alpha: 0,
+                            duration: 2000,
+                            ease: 'Cubic.easeOut',
+                            onComplete: () => {
+                                treeMessage.destroy();
+                            }
+                        });
+                    },
+                    icon: 'icon-examine'
+                },
+                {
+                    text: 'Chop',
+                    callback: () => {
+                        this.chopTree(tree);
+                    },
+                    icon: 'icon-axe'
+                }
             ];
             
-            // Select a random message
-            const message = messages[Math.floor(Math.random() * messages.length)];
+            // Show the context menu at the tree's position
+            this.contextMenu.show(tree.x, tree.y, menuOptions);
+        });
+    }
+    
+    /**
+     * Handle chopping a tree to gather wood
+     * @param tree The tree game object being chopped
+     */
+    chopTree(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Check if player has the right tool (optional)
+        // For now, we'll allow chopping without a tool
+        
+        // Play chopping animation
+        const player = this.player;
+        
+        // Move player closer to the tree if they're far away
+        const distance = Phaser.Math.Distance.Between(player.x, player.y, tree.x, tree.y);
+        if (distance > 50) {
+            // Player is too far, move closer first
+            const angle = Phaser.Math.Angle.Between(player.x, player.y, tree.x, tree.y);
+            const targetX = tree.x - Math.cos(angle) * 40;
+            const targetY = tree.y - Math.sin(angle) * 40;
             
-            // Show notification
-            const treeMessage = this.add.text(tree.x, tree.y - 50, message, {
-                fontSize: '16px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 3,
-                align: 'center'
-            }).setOrigin(0.5);
-            
-            // Add a nice fade out effect
+            // Move player to the tree first, then chop
             this.tweens.add({
-                targets: treeMessage,
-                y: treeMessage.y - 30,
-                alpha: 0,
-                duration: 2000,
-                ease: 'Cubic.easeOut',
+                targets: player,
+                x: targetX,
+                y: targetY,
+                duration: distance * 5, // Speed based on distance
+                ease: 'Linear',
+                onStart: () => {
+                    // Show a message that player is moving to the tree
+                    const moveMsg = this.add.text(player.x, player.y - 20, "Moving to tree...", {
+                        fontSize: '14px',
+                        color: '#ffffff',
+                        stroke: '#000000',
+                        strokeThickness: 2
+                    }).setOrigin(0.5);
+                    
+                    // Fade out and destroy
+                    this.tweens.add({
+                        targets: moveMsg,
+                        alpha: 0,
+                        y: moveMsg.y - 10,
+                        duration: 1000,
+                        onComplete: () => moveMsg.destroy()
+                    });
+                },
                 onComplete: () => {
-                    treeMessage.destroy();
+                    // After moving, perform the chopping action
+                    this.performChopAction(tree);
                 }
             });
-            
-            // In a real game, you could:
-            // - Add items to inventory (wood, fruits, etc.)
-            // - Trigger resource collection animation
-            // - Update quests or achievements
-            // - Spawn creatures or treasures
+        } else {
+            // Player is close enough, chop immediately
+            this.performChopAction(tree);
+        }
+    }
+    
+    /**
+     * Perform the actual tree chopping action and gather wood
+     * @param tree The tree being chopped
+     */
+    performChopAction(tree: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+        // Face the player toward the tree
+        if (tree.x > this.player.x) {
+            this.player.setFlipX(false);
+        } else {
+            this.player.setFlipX(true);
+        }
+        
+        // Play chopping animation (shake the tree)
+        this.tweens.add({
+            targets: tree,
+            x: tree.x + 3,
+            duration: 50,
+            yoyo: true,
+            repeat: 5,
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+                // Create wood particles effect
+                this.createWoodChipParticles(tree.x, tree.y);
+                
+                // Determine amount of wood to give (random between 1-3)
+                const woodAmount = Phaser.Math.Between(1, 3);
+                
+                // Add wood to inventory
+                const woodAdded = this.givePlayerItem('wood', woodAmount);
+                
+                // Show success message
+                let message;
+                if (woodAdded) {
+                    message = `You gathered ${woodAmount} wood!`;
+                    
+                    // Add some XP for woodcutting
+                    if (this.skillManager) {
+                        // Add skill points instead of XP since there's no direct XP method
+                        this.skillManager.addSkillPoints(1);
+                    }
+                } else {
+                    message = "Your inventory is full!";
+                }
+                
+                // Display the message
+                const woodMsg = this.add.text(tree.x, tree.y - 50, message, {
+                    fontSize: '16px',
+                    color: '#ffffff',
+                    stroke: '#000000',
+                    strokeThickness: 3
+                }).setOrigin(0.5);
+                
+                // Fade out and destroy
+                this.tweens.add({
+                    targets: woodMsg,
+                    alpha: 0,
+                    y: woodMsg.y - 30,
+                    duration: 2000,
+                    onComplete: () => woodMsg.destroy()
+                });
+            }
+        });
+    }
+    
+    /**
+     * Create wood chip particle effect when chopping a tree
+     * @param x X coordinate
+     * @param y Y coordinate
+     */
+    createWoodChipParticles(x: number, y: number): void {
+        // Check if wood-chip texture exists, if not create a fallback
+        if (!this.textures.exists('wood-chip')) {
+            const graphics = this.make.graphics({x: 0, y: 0});
+            graphics.fillStyle(0x8B4513); // Brown color
+            graphics.fillRect(0, 0, 8, 4);
+            graphics.generateTexture('wood-chip', 8, 4);
+        }
+        
+        // Create wood chip particles
+        const particles = this.add.particles(x, y, 'wood-chip', {
+            speed: { min: 50, max: 150 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.5, end: 0 },
+            lifespan: 1000,
+            gravityY: 300,
+            quantity: 10,
+            emitting: false
+        });
+        
+        // Emit once and then destroy
+        particles.explode();
+        
+        // Destroy the particle emitter after animation completes
+        this.time.delayedCall(1100, () => {
+            particles.destroy();
         });
     }
 
@@ -985,9 +1250,160 @@ Gold: ${this.playerStats.gold}`;
      */
     addStartingItems(): void {
         // Give the player some basic items
-        this.givePlayerItem('weapon_rusty_sword', 1);
+        this.givePlayerItem('rusty-sword', 1);
         this.givePlayerItem('armor_leather_chest', 1);
         this.givePlayerItem('consumable_minor_healing_potion', 5);
-        this.givePlayerItem('resource_wood', 10);
+        this.givePlayerItem('wood', 10);
+    }
+
+    /**
+     * Set up flag placement and interaction event handlers
+     */
+    setupFlagEvents() {
+        // Handle flag placement failures
+        this.events.on('flag-placement-failed', (data: { reason: string, message: string }) => {
+            console.log('🚩❌ Flag placement failed:', data);
+            
+            // Show a warning message to the player
+            this.uiSystem.showMessage(data.message, 'warning', 3000);
+            
+            // Add specific handling for different failure reasons
+            if (data.reason === 'outside_boundary') {
+                // Visual feedback for out-of-bounds placement
+                this.cameras.main.flash(300, 255, 0, 0, true); // Red flash for boundary error
+            } else if (data.reason === 'overlap') {
+                // Visual feedback for overlap error
+                this.cameras.main.flash(300, 255, 165, 0, true); // Orange flash for overlap error
+            }
+            
+            // Maybe play a failed sound
+            try {
+                if (this.sound.get('error')) {
+                    this.sound.play('error', { volume: 0.5 });
+                } else if (this.sound.get('pickup')) {
+                    // Use another sound if error sound is not available
+                    this.sound.play('pickup', { volume: 0.3, detune: -300 }); // Lower pitch for error effect
+                }
+            } catch (error) {
+                console.warn('Sound not available for flag placement error', error);
+            }
+        });
+
+        // Listen for flag teleport events
+        this.events.on('flag-teleport', (data: { lat: number, lon: number, flagId: string }) => {
+            console.log('🚩➡️ Teleporting player to flag:', data);
+            
+            // Get the flag data
+            const flag = this.flagSystem.flags.get(data.flagId);
+            if (!flag) {
+                console.error('Flag not found for teleport:', data.flagId);
+                return;
+            }
+            
+            // First, update the map center and navigation circle
+            // This is critical for positioning to work correctly
+            this.mapSystem.setMapCenter(data.lat, data.lon);
+            this.mapSystem.updateNavigationCircle(data.lat, data.lon);
+            
+            // Give the map a moment to update before positioning the player
+            setTimeout(() => {
+                // Convert geographic coordinates to screen coordinates
+                const screenPosition = this.mapSystem.geoToScreenCoordinates(data.lat, data.lon);
+                
+                // Teleport the player to the flag's position on screen
+                if (this.player && screenPosition) {
+                    console.log('Screen position for teleport:', screenPosition);
+                    
+                    // Add a small offset so player doesn't appear directly on the flag
+                    const offsetX = 20;  // 20 pixels to the right
+                    const offsetY = -30; // 30 pixels up (so player appears above the flag)
+                    
+                    // Set player position
+                    this.player.setPosition(screenPosition.x + offsetX, screenPosition.y + offsetY);
+                    
+                    // Make sure the player is visible
+                    this.player.setVisible(true);
+                    
+                    // Update player animation to idle
+                    this.player.anims.play('player-idle', true);
+                    
+                    // Set proper depth to ensure player is visible
+                    this.player.setDepth(800);
+                    
+                    // Play a teleport animation or effect
+                    this.cameras.main.flash(500, 255, 255, 255, true);
+                    
+                    // Emit a sound if available
+                    try {
+                        if (this.sound.get('teleport')) {
+                            this.sound.play('teleport', { volume: 0.5 });
+                        } else {
+                            // Fallback to a default sound
+                            this.sound.play('pickup', { volume: 0.5 });
+                        }
+                    } catch (error) {
+                        console.warn('Sound not available for teleport', error);
+                    }
+                    
+                    console.log('Player teleported to flag', {
+                        flagId: data.flagId,
+                        screenPosition: [screenPosition.x, screenPosition.y],
+                        playerPosition: [this.player.x, this.player.y]
+                    });
+                    
+                    // Show a success message to the player
+                    if (this.uiSystem) {
+                        this.uiSystem.showMessage(`Teleported to ${flag.name}!`, 'success', 2000);
+                    }
+                } else {
+                    console.error('Could not teleport: player or screen position invalid', {
+                        player: !!this.player,
+                        screenPosition
+                    });
+                }
+            }, 100); // Small delay to ensure map has updated
+        });
+        
+        // Listen for flag repair events (for later gameplay mechanics)
+        this.events.on('flag-repaired', (data: { flagId: string, oldHealth: number, newHealth: number }) => {
+            console.log('🚩🔧 Flag repaired:', data);
+            
+            // Play repair sound if available
+            try {
+                if (this.sound.get('repair')) {
+                    this.sound.play('repair', { volume: 0.5 });
+                } else {
+                    // Fallback to a default sound
+                    this.sound.play('pickup', { volume: 0.5 });
+                }
+            } catch (error) {
+                console.warn('Sound not available for repair', error);
+            }
+            
+            // Add XP for repairing
+            this.playerStats.xp += 5;
+            this.uiSystem.updateXPDisplay(this.playerStats.xp, this.playerStats.xpToNextLevel);
+        });
+        
+        // Listen for flag hardened events
+        this.events.on('flag-hardened', (data: { flagId: string, flag: any }) => {
+            console.log('🚩🛡️ Flag hardened:', data);
+            
+            // Play hardening sound if available
+            try {
+                if (this.sound.get('powerup')) {
+                    this.sound.play('powerup', { volume: 0.5 });
+                } else {
+                    // Fallback to a default sound
+                    this.sound.play('pickup', { volume: 0.5 });
+                }
+            } catch (error) {
+                console.warn('Sound not available for hardening', error);
+            }
+            
+            // Add XP for hardening
+            this.playerStats.xp += 10;
+            this.uiSystem.updateXPDisplay(this.playerStats.xp, this.playerStats.xpToNextLevel);
+        });
     }
 }

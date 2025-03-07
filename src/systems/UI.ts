@@ -330,4 +330,80 @@ export class UISystem {
             }
         });
     }
+    
+    /**
+     * Update the XP display with current values
+     */
+    updateXPDisplay(currentXP: number, xpToNextLevel: number): void {
+        // Find the XP text element if it exists
+        const xpText = this.scene.children.list.find(
+            child => child.type === 'Text' && 
+            (child as Phaser.GameObjects.Text).name === 'xp_text'
+        ) as Phaser.GameObjects.Text | undefined;
+        
+        // Update XP text if found
+        if (xpText) {
+            const xpPercentage = Math.min((currentXP / xpToNextLevel) * 100, 100).toFixed(1);
+            xpText.setText(`XP: ${currentXP}/${xpToNextLevel} (${xpPercentage}%)`);
+        }
+        
+        // Find the XP bar if it exists
+        const xpBar = this.scene.children.list.find(
+            child => child.type === 'Rectangle' && 
+            (child as Phaser.GameObjects.Rectangle).name === 'xp_bar_fill'
+        ) as Phaser.GameObjects.Rectangle | undefined;
+        
+        // Update XP bar if found
+        if (xpBar) {
+            const maxWidth = 150; // Assuming this is the max width of the XP bar
+            const fillWidth = Math.min((currentXP / xpToNextLevel) * maxWidth, maxWidth);
+            xpBar.width = fillWidth;
+        }
+        
+        // Check if player can level up
+        if (currentXP >= xpToNextLevel) {
+            this.showLevelUpNotification();
+        }
+    }
+    
+    /**
+     * Show a notification that the player can level up
+     */
+    private showLevelUpNotification(): void {
+        const { width, height } = this.scene.scale;
+        
+        // Create notification text if it doesn't exist
+        if (!this.scene.children.list.find(child => 
+            child.type === 'Text' && 
+            (child as Phaser.GameObjects.Text).name === 'level_up_notification'
+        )) {
+            const notification = this.scene.add.text(
+                width / 2, 
+                100, 
+                'Level Up Available! Press L to level up', 
+                { 
+                    fontFamily: 'Arial',
+                    fontSize: '18px', 
+                    color: '#FFFF00',
+                    stroke: '#000000',
+                    strokeThickness: 4,
+                    align: 'center'
+                }
+            );
+            notification.setName('level_up_notification');
+            notification.setOrigin(0.5);
+            notification.setScrollFactor(0);
+            notification.setDepth(1000);
+            
+            // Add a pulsing animation
+            this.scene.tweens.add({
+                targets: notification,
+                scaleX: 1.1,
+                scaleY: 1.1,
+                duration: 800,
+                yoyo: true,
+                repeat: -1
+            });
+        }
+    }
 }

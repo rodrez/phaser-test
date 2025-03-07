@@ -23,10 +23,28 @@ export class MainMenu extends Scene
             align: 'center'
         }).setOrigin(0.5);
 
-        this.input.once('pointerdown', () => {
+        // Add button to start the game
+        const gameButton = this.add.text(512, 520, 'Start Game', {
+            fontFamily: 'Arial Black', fontSize: 26, color: '#ffffff',
+            stroke: '#000000', strokeThickness: 6,
+            align: 'center'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-            this.scene.start('Game');
+        // Add button to open the menu scene
+        const menuButton = this.add.text(512, 580, 'Open Menu', {
+            fontFamily: 'Arial Black', fontSize: 26, color: '#ffffff',
+            stroke: '#000000', strokeThickness: 6,
+            align: 'center'
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-        });
+        // Add hover effects
+        gameButton.on('pointerover', () => gameButton.setTint(0xffff00));
+        gameButton.on('pointerout', () => gameButton.clearTint());
+        menuButton.on('pointerover', () => menuButton.setTint(0xffff00));
+        menuButton.on('pointerout', () => menuButton.clearTint());
+
+        // Add click handlers
+        gameButton.on('pointerdown', () => this.scene.start('Game'));
+        menuButton.on('pointerdown', () => this.scene.start('MenuScene'));
     }
 }

@@ -57,8 +57,8 @@ export class MapSystem {
         
         // Create a DOM element for the map
         this.mapElement = document.createElement('div');
-        this.mapElement.style.width = width + 'px';
-        this.mapElement.style.height = height + 'px';
+        this.mapElement.style.width = '100%'; // Use 100% width to ensure it covers the entire game area
+        this.mapElement.style.height = '100%'; // Use 100% height to ensure it covers the entire game area
         this.mapElement.style.position = 'absolute';
         
         // Position the map element at exactly the same position as the canvas
@@ -79,9 +79,11 @@ export class MapSystem {
         if (canvas && canvas.parentNode) {
             canvas.parentNode.insertBefore(this.mapElement, canvas);
             
-            // Ensure the canvas has a higher z-index
+            // Ensure the canvas has a higher z-index and proper dimensions
             canvas.style.position = 'relative';
             canvas.style.zIndex = '2';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
         } else {
             document.body.appendChild(this.mapElement);
         }
@@ -131,9 +133,9 @@ export class MapSystem {
         const screenCenterX = screenWidth / 2;
         const screenCenterY = screenHeight / 2;
         
-        // Draw circle at screen center - the radius will be proportional to the map zoom
-        // At zoom level 17, 600m is approximately 80% of the screen width on most devices
-        const screenRadius = screenWidth * 0.4; // Adjust this value for your app
+        // Draw circle at screen center - the radius should be proportional to but smaller than the screen
+        // to ensure all elements fit within the visible area
+        const screenRadius = Math.min(screenWidth, screenHeight) * 0.38; // Reduced from 0.4 to ensure visibility
         
         // Draw circle with more dotted/dashed segments
         const numberOfSegments = 64; // Increased from 32 to 64 for more dots
@@ -206,6 +208,15 @@ export class MapSystem {
             .leaflet-container:after {
                 z-index: 15 !important;
             }
+            
+            /* Fix map container position and size */
+            .leaflet-container {
+                position: absolute !important;
+                width: 100% !important;
+                height: 100% !important;
+                top: 0 !important;
+                left: 0 !important;
+            }
         `;
         document.head.appendChild(navCircleStyle);
         
@@ -232,6 +243,9 @@ export class MapSystem {
             canvas {
                 position: relative !important;
                 z-index: 50 !important;
+                width: 100% !important;
+                height: 100% !important;
+                display: block !important;
             }
             
             /* Make sure tile layers are visible but dimmed */
@@ -239,11 +253,26 @@ export class MapSystem {
                 opacity: 1 !important;
             }
             
-            /* Ensure the map container is properly positioned */
+            /* Ensure no black areas by making sure elements expand to full container */
+            #game-container {
+                overflow: hidden !important;
+                width: 100% !important;
+                height: 100% !important;
+                position: relative !important;
+            }
+            
+            /* Fix map container to fit properly */
             .leaflet-container {
                 position: absolute !important;
                 width: 100% !important;
                 height: 100% !important;
+                top: 0 !important;
+                left: 0 !important;
+            }
+            
+            /* Fix tile positioning */
+            .leaflet-tile {
+                position: absolute !important;
             }
         `;
         document.head.appendChild(style);
@@ -370,120 +399,47 @@ export class MapSystem {
         }
     }
     
-    // Method specifically for updating the navigation radius circle's position
-    // Call this when player jumps to a flag
+    /**
+     * Update the navigation circle position
+     */
     updateNavigationCircle(lat: number, lon: number): void {
-        console.log('⭕ updateNavigationCircle called:', { lat, lon });
+        // Update the map center if provided
+        if (lat && lon) {
+            this.mapCenterLat = lat;
+            this.mapCenterLon = lon;
+        }
         
-        // Update Leaflet circle
+        // If no leaflet map, early return
+        if (!this.leafletMap) return;
+        
+        // Remove existing navigation circle if it exists
         if (this.navigationCircle) {
-            // Update circle position
-            this.navigationCircle.setLatLng([lat, lon]);
-            
-            // Log detailed circle information
-            console.log('🚩 Navigation Circle Updated for Flag Jump:', {
-                newPosition: [lat, lon],
-                radius: this.navigationRadius + ' meters',
-                domElement: document.querySelector('.navigation-radius-circle'),
-                options: this.navigationCircle.options,
-                bounds: this.navigationCircle.getBounds(),
-                pane: this.leafletMap.getPane('overlayPane')
-            });
-            
-            // For debugging - flash the circle briefly to make it more noticeable
-            const originalStyle = this.navigationCircle.options;
-            
-            // Briefly make the circle more visible
-            this.navigationCircle.setStyle({
-                color: '#ff0000',
-                weight: 8,
-                opacity: 1.0,
-                fillOpacity: 0.2
-            });
-            
-            // Log the style change
-            console.log('💫 Navigation Circle Style Enhanced for visibility');
-            
-            // Restore original style after 500ms
-            setTimeout(() => {
-                if (this.navigationCircle) {
-                    this.navigationCircle.setStyle({
-                        color: originalStyle.color,
-                        weight: originalStyle.weight,
-                        opacity: originalStyle.opacity,
-                        fillOpacity: originalStyle.fillOpacity
-                    });
-                    console.log('⏱️ Navigation Circle Style Restored');
-                }
-            }, 500);
-        } else {
-            console.warn('⚠️ Cannot update navigation circle: circle not initialized');
+            this.navigationCircle.remove();
         }
         
-        // Update the Phaser graphics circle as well
-        if (this.navigationCircleGraphics) {
-            // Flash the Phaser circle by changing its color temporarily
+        // Create a new navigation circle at the updated position
+        this.navigationCircle = L.circle([this.mapCenterLat, this.mapCenterLon], {
+            radius: this.navigationRadius,
+            color: '#FF5500',
+            weight: 3,
+            opacity: 0.8,
+            fillColor: '#FF5500',
+            fillOpacity: 0.1,
+            className: 'navigation-circle'
+        }).addTo(this.leafletMap);
+        
+        // Update the circle's position on the Phaser canvas as well
+        if (!this.navigationCircleGraphics) {
+            this.navigationCircleGraphics = this.scene.add.graphics();
+        } else {
             this.navigationCircleGraphics.clear();
-            this.navigationCircleGraphics.lineStyle(8, 0xff0000, 1); // Thicker, bright red, fully opaque
-            this.navigationCircleGraphics.fillStyle(0xff0000, 0.2); // Brighter fill
-            
-            // Draw at center of screen (since we're looking at the new location)
-            const screenWidth = this.camera.width;
-            const screenHeight = this.camera.height;
-            const screenCenterX = screenWidth / 2;
-            const screenCenterY = screenHeight / 2;
-            const screenRadius = screenWidth * 0.4;
-            
-            // Draw full circle for the flash effect
-            this.navigationCircleGraphics.beginPath();
-            this.navigationCircleGraphics.arc(
-                screenCenterX, screenCenterY, 
-                screenRadius, 
-                0, Math.PI * 2,
-                false
-            );
-            this.navigationCircleGraphics.strokePath();
-            this.navigationCircleGraphics.fillPath();
-            
-            // Restore original style after 500ms
-            setTimeout(() => {
-                if (this.navigationCircleGraphics) {
-                    this.navigationCircleGraphics.clear();
-                    this.navigationCircleGraphics.lineStyle(3, 0x000000, 1.0);
-                    this.navigationCircleGraphics.fillStyle(0x000000, 0.03);
-                    
-                    // Draw circle with more dotted/dashed segments
-                    const numberOfSegments = 64; // Increased from 32 to 64 for more dots
-                    const segmentAngle = (Math.PI * 2) / numberOfSegments;
-                    
-                    for (let i = 0; i < numberOfSegments; i++) {
-                        if (i % 2 === 0) { // Draw every other segment
-                            const startAngle = segmentAngle * i;
-                            const endAngle = segmentAngle * (i + 1);
-                            
-                            this.navigationCircleGraphics.beginPath();
-                            this.navigationCircleGraphics.arc(
-                                screenCenterX, screenCenterY, 
-                                screenRadius, 
-                                startAngle, endAngle,
-                                false
-                            );
-                            this.navigationCircleGraphics.strokePath();
-                        }
-                    }
-                    
-                    // Add a very slight fill
-                    this.navigationCircleGraphics.beginPath();
-                    this.navigationCircleGraphics.arc(
-                        screenCenterX, screenCenterY, 
-                        screenRadius, 
-                        0, Math.PI * 2,
-                        false
-                    );
-                    this.navigationCircleGraphics.fillPath();
-                }
-            }, 500);
         }
+        
+        // Force the map to recenter at the new position 
+        // This is important for teleporting to work correctly
+        this.leafletMap.setView([this.mapCenterLat, this.mapCenterLon], this.mapZoom);
+        
+        console.log(`Navigation circle updated at [${this.mapCenterLat}, ${this.mapCenterLon}] with radius ${this.navigationRadius}m`);
     }
     
     // Method to update zoom level
@@ -624,6 +580,45 @@ export class MapSystem {
             return result;
         } catch (error) {
             console.error('Error converting screen coordinates to map coordinates:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Convert geographical coordinates to screen coordinates 
+     * for positioning game objects based on map positions
+     */
+    geoToScreenCoordinates(lat: number, lon: number): { x: number, y: number } | null {
+        if (!this.leafletMap) return null;
+        
+        try {
+            // Get the map center in pixels
+            const mapCenter = this.leafletMap.getCenter();
+            const centerPoint = this.leafletMap.latLngToContainerPoint([mapCenter.lat, mapCenter.lng]);
+            
+            // Get the target position in pixels
+            const targetPoint = this.leafletMap.latLngToContainerPoint([lat, lon]);
+            
+            // Calculate screen position based on Phaser's coordinate system
+            // Phaser coordinates have 0,0 at top-left while Leaflet container coordinates
+            // are relative to the map container's top-left
+            const { width, height } = this.scene.scale;
+            
+            // Get the center of the screen
+            const screenCenterX = width / 2;
+            const screenCenterY = height / 2;
+            
+            // Calculate the offset from map center
+            const offsetX = targetPoint.x - centerPoint.x;
+            const offsetY = targetPoint.y - centerPoint.y;
+            
+            // Apply the offset to the screen center
+            const screenX = screenCenterX + offsetX;
+            const screenY = screenCenterY + offsetY;
+            
+            return { x: screenX, y: screenY };
+        } catch (error) {
+            console.error('Error converting geo to screen coordinates:', error);
             return null;
         }
     }

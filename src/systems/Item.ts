@@ -8,8 +8,7 @@ export enum ItemType {
     RESOURCE = 'resource',
     QUEST = 'quest',
     TOOL = 'tool',
-    MISC = 'misc',
-    FOOD = 'food'
+    MISC = 'misc'
 }
 
 // Enum for item rarities
@@ -20,6 +19,15 @@ export enum ItemRarity {
     EPIC = 'epic',
     LEGENDARY = 'legendary',
     MYTHIC = 'mythic'
+}
+
+// Enum for fruit types
+export enum FruitType {
+    APPLE = 'apple',
+    ORANGE = 'orange',
+    CHERRY = 'cherry',
+    BANANA = 'banana',
+    PEAR = 'pear'
 }
 
 // Enum for weapon types
@@ -43,23 +51,14 @@ export enum ArmorType {
     SHIELD = 'shield'
 }
 
-// Enum for fruit types
-export enum FruitType {
-    APPLE = 'apple',
-    ORANGE = 'orange',
-    BANANA = 'banana',
-    CHERRY = 'cherry',
-    STRAWBERRY = 'strawberry',
-    PEAR = 'pear',
-    LEMON = 'lemon',
-    WATERMELON = 'watermelon'
-}
-
 // Interface for item attributes
 export interface ItemAttributes {
+    // Combat attributes
     damage?: number;
     defense?: number;
     attackSpeed?: number;
+    
+    // Elemental attributes
     poison?: boolean;
     normal?: boolean;
     fire?: boolean;
@@ -67,7 +66,6 @@ export interface ItemAttributes {
     electric?: boolean;
     holy?: boolean;
     demonic?: boolean;
-    
 }
 
 // Interface for crafting requirements
@@ -266,17 +264,20 @@ export class ArmorItem extends BaseItem {
 export class ConsumableItem extends BaseItem {
     // Effects that happen when the item is consumed
     healthRestore?: number;
+    manaRestore?: number;
     tempAttributes?: ItemAttributes;
     effectDuration?: number; // In milliseconds
     
     constructor(itemData: IItem & {
         healthRestore?: number,
+        manaRestore?: number,
         tempAttributes?: ItemAttributes,
         effectDuration?: number
     }) {
         super(itemData);
         this.type = ItemType.CONSUMABLE;
         this.healthRestore = itemData.healthRestore;
+        this.manaRestore = itemData.manaRestore;
         this.tempAttributes = itemData.tempAttributes;
         this.effectDuration = itemData.effectDuration;
     }
@@ -289,33 +290,6 @@ export class ConsumableItem extends BaseItem {
         // For example, the player system would apply healing, etc.
         
         return true;
-    }
-}
-
-// Fruit item class
-export class FruitItem extends ConsumableItem {
-    fruitType: FruitType;
-    spriteFrame: number;
-    
-    constructor(itemData: IItem & {
-        fruitType: FruitType,
-        spriteFrame: number,
-        healthRestore?: number,
-        tempAttributes?: ItemAttributes,
-        effectDuration?: number
-    }) {
-        super(itemData);
-        this.fruitType = itemData.fruitType;
-        this.spriteFrame = itemData.spriteFrame;
-    }
-    
-    override clone(): FruitItem {
-        return new FruitItem({
-            ...this,
-            attributes: this.attributes ? { ...this.attributes } : undefined,
-            tempAttributes: this.tempAttributes ? { ...this.tempAttributes } : undefined,
-            craftingRequirements: this.craftingRequirements ? [...this.craftingRequirements] : undefined
-        });
     }
 }
 
@@ -398,30 +372,28 @@ export class ItemSystem {
     
     // Initialize the item database with predefined items
     private initializeItems(): void {
-        // Example items - in a real game, these would probably be loaded from a JSON file
-        
-        // Add some weapons
-        const rustySword = new WeaponItem({
-            id: 'weapon_rusty_sword',
+        // Register weapons
+        this.registerItem(new WeaponItem({
+            id: 'rusty-sword',
             name: 'Rusty Sword',
-            description: 'An old, rusty sword. Not very effective, but better than nothing.',
-            iconUrl: '/items/rusty_sword.png',
+            description: 'An old sword with a rusty blade. Not very effective, but better than nothing.',
+            iconUrl: 'rusty-sword',
             type: ItemType.WEAPON,
-            weaponType: WeaponType.SWORD,
             rarity: ItemRarity.COMMON,
-            weight: 2.5,
+            weight: 3,
             value: 5,
             level: 1,
             stackable: false,
             maxStackSize: 1,
-            usable: true,
-            attributes: {
-                damage: 3,
-                attackSpeed: 1.2
-            },
+            usable: false,
             durability: 20,
-            maxDurability: 20
-        });
+            maxDurability: 20,
+            weaponType: WeaponType.SWORD,
+            attributes: {
+                damage: 5,
+                normal: true
+            }
+        }));
         
         // Add some armor
         const leatherChest = new ArmorItem({
@@ -463,87 +435,70 @@ export class ItemSystem {
             healthRestore: 20
         });
         
-        // Add some resources
-        const wood = new BaseItem({
-            id: 'resource_wood',
+        // Register resources
+        this.registerItem(new BaseItem({
+            id: 'wood',
             name: 'Wood',
-            description: 'A piece of wood. Used in crafting.',
-            iconUrl: '/items/wood.png',
+            description: 'A piece of wood gathered from trees. Used for crafting and building.',
+            iconUrl: 'wood',
             type: ItemType.RESOURCE,
             rarity: ItemRarity.COMMON,
-            weight: 1.0,
+            weight: 0.5,
             value: 1,
             stackable: true,
             maxStackSize: 50,
             usable: false
-        });
+        }));
         
-        // Add fruit items
-        const apple = new FruitItem({
+        // Register fruit items
+        this.registerItem(new ConsumableItem({
             id: 'food_apple',
             name: 'Apple',
-            description: 'A fresh apple. Restores a small amount of health.',
-            iconUrl: '/items/fruits.png',
-            type: ItemType.FOOD,
+            description: 'A fresh, juicy apple. Restores a small amount of health.',
+            iconUrl: 'fruits',
+            type: ItemType.CONSUMABLE,
             rarity: ItemRarity.COMMON,
             weight: 0.2,
             value: 2,
             stackable: true,
             maxStackSize: 10,
             usable: true,
-            fruitType: FruitType.APPLE,
-            spriteFrame: 0,
-            healthRestore: 5,
-            uses: 1,
-            maxUses: 1
-        });
+            healthRestore: 5
+        }));
         
-        const orange = new FruitItem({
+        this.registerItem(new ConsumableItem({
             id: 'food_orange',
             name: 'Orange',
-            description: 'A juicy orange. Restores a small amount of health.',
-            iconUrl: '/items/fruits.png',
-            type: ItemType.FOOD,
+            description: 'A citrus fruit rich in vitamin C. Restores health and provides a small energy boost.',
+            iconUrl: 'fruits',
+            type: ItemType.CONSUMABLE,
             rarity: ItemRarity.COMMON,
             weight: 0.2,
-            value: 2,
+            value: 3,
             stackable: true,
             maxStackSize: 10,
             usable: true,
-            fruitType: FruitType.ORANGE,
-            spriteFrame: 1,
-            healthRestore: 6,
-            uses: 1,
-            maxUses: 1
-        });
+            healthRestore: 8
+        }));
         
-        const cherry = new FruitItem({
+        this.registerItem(new ConsumableItem({
             id: 'food_cherry',
             name: 'Cherry',
-            description: 'A sweet cherry. Restores a tiny amount of health.',
-            iconUrl: '/items/fruits.png',
-            type: ItemType.FOOD,
+            description: 'A small, sweet cherry. A tasty snack that provides a minor health boost.',
+            iconUrl: 'fruits',
+            type: ItemType.CONSUMABLE,
             rarity: ItemRarity.COMMON,
             weight: 0.1,
             value: 1,
             stackable: true,
             maxStackSize: 20,
             usable: true,
-            fruitType: FruitType.CHERRY,
-            spriteFrame: 3,
-            healthRestore: 3,
-            uses: 1,
-            maxUses: 1
-        });
+            healthRestore: 3
+        }));
         
         // Register all items in the database
-        this.registerItem(rustySword);
         this.registerItem(leatherChest);
         this.registerItem(minorHealingPotion);
-        this.registerItem(wood);
-        this.registerItem(apple);
-        this.registerItem(orange);
-        this.registerItem(cherry);
     }
     
     // Register a new item in the database
