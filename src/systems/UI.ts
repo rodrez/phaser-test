@@ -29,6 +29,8 @@ export class UISystem {
         text: Phaser.GameObjects.Text;
     };
     
+    private godModeIndicator: Phaser.GameObjects.Text;
+    
     private isAggressive: boolean = false;
     
     constructor(scene: Scene) {
@@ -47,6 +49,7 @@ export class UISystem {
         this.createXPBar();
         this.createGoldDisplay();
         this.createAggressionIndicator();
+        this.createGodModeIndicator();
         
         // Update the UI initially
         this.updateUI();
@@ -165,6 +168,31 @@ export class UISystem {
         this.vitalsContainer.add([circle, text]);
         
         this.aggressionIndicator = { circle, text };
+    }
+    
+    /**
+     * Create the god mode indicator
+     */
+    private createGodModeIndicator(): void {
+        // Create god mode text indicator in the top right corner
+        const { width } = this.scene.scale;
+        this.godModeIndicator = this.scene.add.text(
+            width - 10, 
+            10, 
+            'GOD MODE', 
+            {
+                fontFamily: 'Arial',
+                fontSize: '16px',
+                color: '#FFD700', // Gold color
+                stroke: '#000000',
+                strokeThickness: 4,
+                align: 'right'
+            }
+        );
+        this.godModeIndicator.setOrigin(1, 0); // Align to top right
+        this.godModeIndicator.setScrollFactor(0); // Fix to camera
+        this.godModeIndicator.setDepth(1000); // Ensure it's on top
+        this.godModeIndicator.setVisible(false); // Hidden by default
     }
     
     /**
@@ -404,6 +432,21 @@ export class UISystem {
                 yoyo: true,
                 repeat: -1
             });
+        }
+    }
+    
+    /**
+     * Set god mode state and update the indicator
+     */
+    public setGodMode(enabled: boolean): void {
+        this.godModeIndicator.setVisible(enabled);
+        
+        if (enabled) {
+            // Show a message when god mode is enabled
+            this.showMessage('God Mode Enabled', 'success', 2000);
+        } else {
+            // Show a message when god mode is disabled
+            this.showMessage('God Mode Disabled', 'info', 2000);
         }
     }
 }

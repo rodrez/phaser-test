@@ -1,4 +1,7 @@
 import { Scene } from 'phaser';
+import { EquipmentSlot, InventorySystem } from './Inventory';
+import { ArmorItem, ArmorType, WeaponItem, WeaponType } from './Item';
+import { EquipmentSystem } from './Equipment';
 
 export class PlayerSystem {
     // Reference to the main game scene
@@ -13,8 +16,30 @@ export class PlayerSystem {
         fill: Phaser.GameObjects.Rectangle;
     };
 
+    // Equipment visual layers
+    private equipmentSprites: Map<EquipmentSlot, Phaser.GameObjects.Sprite> = new Map();
+    
+    // Auto-attack properties
+    private currentTarget: any = null;
+    private attackCooldown: number = 0;
+    private readonly ATTACK_RANGE: number = 60;
+    private readonly ATTACK_COOLDOWN: number = 2500; // Increased from 800 to 2500 ms for more balanced combat
+
+    // Target indicator properties
+    private targetIndicator: Phaser.GameObjects.Graphics | null = null;
+
+    // Reference to the equipment system
+    private equipmentSystem?: EquipmentSystem;
+
     constructor(scene: Scene) {
         this.scene = scene;
+        
+        // Get or create equipment system
+        this.equipmentSystem = (this.scene as any).equipmentSystem;
+        if (!this.equipmentSystem) {
+            this.equipmentSystem = new EquipmentSystem(this.scene);
+            (this.scene as any).equipmentSystem = this.equipmentSystem;
+        }
     }
 
     /**
@@ -59,6 +84,12 @@ export class PlayerSystem {
         // Create animations and vitals
         this.createPlayerAnimations();
         this.createVitals();
+        
+        // Initialize equipment layers
+        this.initializeEquipmentLayers();
+        
+        // Subscribe to inventory equipment changes
+        this.subscribeToEquipmentChanges();
 
         // DO NOT set up camera to follow player in map-based games
         // The camera should remain fixed on the map
@@ -146,6 +177,178 @@ export class PlayerSystem {
     }
 
     /**
+     * Initializes the visual equipment layers for the player
+     */
+    private initializeEquipmentLayers(): void {
+        if (!this.player) return;
+        
+        // Create sprite layers for each equipment slot that needs visual representation
+        const visualSlots: EquipmentSlot[] = ['head', 'chest', 'mainHand', 'offHand'];
+        
+        visualSlots.forEach(slot => {
+            // Create a sprite that follows the player position
+            const sprite = this.scene.add.sprite(this.player.x, this.player.y, 'equipment_placeholder');
+            
+            // Set initial properties
+            sprite.setVisible(false);
+            sprite.setDepth(this.player.depth + 1); // Render above player
+            
+            // Store in our equipment sprites map
+            this.equipmentSprites.set(slot, sprite);
+        });
+    }
+    
+    /**
+     * Updates the position of equipment sprites to follow the player
+     */
+    private updateEquipmentPositions(): void {
+        if (!this.player) return;
+        
+        this.equipmentSprites.forEach(sprite => {
+            sprite.setPosition(this.player.x, this.player.y);
+            
+            // Match player's flip state for consistent direction
+            sprite.setFlipX(this.player.flipX);
+        });
+    }
+    
+    /**
+     * Subscribes to inventory equipment change events
+     */
+    private subscribeToEquipmentChanges(): void {
+        const inventorySystem = (this.scene as any).inventorySystem as InventorySystem;
+        if (!inventorySystem) {
+            console.warn('InventorySystem not found, equipment visuals will not update');
+            return;
+        }
+        
+        // Listen for equipment changes
+        inventorySystem.on('item-equipped', (data) => {
+            if (data.equipmentSlot) {
+                this.updateEquipmentVisual(data.equipmentSlot);
+            }
+        });
+        
+        inventorySystem.on('item-unequipped', (data) => {
+            if (data.equipmentSlot) {
+                this.hideEquipmentVisual(data.equipmentSlot);
+            }
+        });
+    }
+    
+    /**
+     * Updates the visual appearance of an equipment slot
+     */
+    updateEquipmentVisual(slot: EquipmentSlot): void {
+        const sprite = this.equipmentSprites.get(slot);
+        if (!sprite || !this.equipmentSystem) return;
+        
+        const inventorySystem = (this.scene as any).inventorySystem as InventorySystem;
+        if (!inventorySystem) return;
+        
+        const equippedItem = inventorySystem.getEquippedItem(slot);
+        if (!equippedItem) {
+            // No item equipped, hide the sprite
+            sprite.setVisible(false);
+            return;
+        }
+        
+        // Get the appropriate texture key based on the item
+        let textureKey = '';
+        
+        if (equippedItem.item instanceof WeaponItem) {
+            textureKey = this.equipmentSystem.getWeaponTextureKey(
+                equippedItem.item.weaponType, 
+                equippedItem.item.id
+            );
+        } else if (equippedItem.item instanceof ArmorItem) {
+            textureKey = this.equipmentSystem.getArmorTextureKey(
+                equippedItem.item.armorType, 
+                equippedItem.item.id
+            );
+        } else {
+            // Not a visual equipment item
+            sprite.setVisible(false);
+            return;
+        }
+        
+        // Check if the texture exists
+        if (this.scene.textures.exists(textureKey)) {
+            sprite.setTexture(textureKey);
+            sprite.setVisible(true);
+            
+            // Position the equipment based on the slot
+            this.positionEquipment(slot, sprite);
+            
+            // Play appropriate animation if available
+            if (this.equipmentSystem) {
+                this.equipmentSystem.playEquipmentAnimation(sprite, textureKey, 'idle');
+            }
+        } else {
+            console.warn(`Texture ${textureKey} not found for equipment item`);
+            sprite.setVisible(false);
+        }
+    }
+    
+    /**
+     * Positions equipment sprites relative to the player based on slot type
+     */
+    private positionEquipment(slot: EquipmentSlot, sprite: Phaser.GameObjects.Sprite): void {
+        // Set offsets based on equipment slot
+        switch (slot) {
+            case 'head':
+                // Position slightly above player's center
+                sprite.setOrigin(0.5, 0.5);
+                sprite.y = this.player.y - 15;
+                break;
+                
+            case 'chest':
+                // Position at player's center
+                sprite.setOrigin(0.5, 0.5);
+                break;
+                
+            case 'mainHand':
+                // Position to the right of player (or left when flipped)
+                sprite.setOrigin(0.5, 0.5);
+                sprite.x = this.player.flipX ? this.player.x - 20 : this.player.x + 20;
+                break;
+                
+            case 'offHand':
+                // Position to the left of player (or right when flipped)
+                sprite.setOrigin(0.5, 0.5);
+                sprite.x = this.player.flipX ? this.player.x + 20 : this.player.x - 20;
+                break;
+                
+            default:
+                // Default positioning at player center
+                sprite.setOrigin(0.5, 0.5);
+        }
+    }
+    
+    /**
+     * Hides the visual for an equipment slot
+     */
+    hideEquipmentVisual(slot: EquipmentSlot): void {
+        const sprite = this.equipmentSprites.get(slot);
+        if (sprite) {
+            sprite.setVisible(false);
+        }
+    }
+    
+    /**
+     * Updates all equipment visuals based on current inventory
+     */
+    updateAllEquipmentVisuals(): void {
+        const inventorySystem = (this.scene as any).inventorySystem as InventorySystem;
+        if (!inventorySystem) return;
+        
+        // Update each equipment slot that has a visual representation
+        this.equipmentSprites.forEach((_, slot) => {
+            this.updateEquipmentVisual(slot);
+        });
+    }
+
+    /**
      * Updates player physics and cleans up any ghost sprites.
      */
     updatePlayerPhysics(delta: number): void {
@@ -186,6 +389,9 @@ export class PlayerSystem {
                 this.player.body.reset(this.player.x, this.player.y);
             }
         }
+        
+        // Update equipment positions to follow player
+        this.updateEquipmentPositions();
     }
 
     /**
@@ -309,6 +515,9 @@ export class PlayerSystem {
         
         // Update the health bar position to follow the player
         this.updateHealthBarPosition();
+        
+        // Update equipment positions after player moves
+        this.updateEquipmentPositions();
     }
 
     /**
@@ -446,6 +655,12 @@ export class PlayerSystem {
         }
 
         const stats = (this.scene as any).playerStats;
+        
+        // Check if god mode is enabled - skip damage if it is
+        if (stats.godMode) {
+            return;
+        }
+        
         stats.health = Math.max(0, stats.health - amount);
         this.updateHealthBar();
         
@@ -509,5 +724,181 @@ export class PlayerSystem {
      */
     getPlayerSprite(): Phaser.Physics.Arcade.Sprite {
         return this.player;
+    }
+
+    /**
+     * Handles auto-attacking nearby monsters
+     * @param time Current game time
+     */
+    autoAttack(time: number): void {
+        // Skip if cooldown hasn't expired
+        if (time < this.attackCooldown) {
+            return;
+        }
+
+        // If we have a current target, check if it's still valid
+        if (this.currentTarget) {
+            // Check if target is still active and in range
+            if (!this.currentTarget.active || this.currentTarget.currentState === 'DEAD') {
+                this.currentTarget = null;
+                this.hideTargetIndicator();
+            } else {
+                // Calculate distance to target
+                const distToTarget = Phaser.Math.Distance.Between(
+                    this.player.x, this.player.y,
+                    this.currentTarget.x, this.currentTarget.y
+                );
+
+                // If target is out of range, clear it
+                if (distToTarget > this.ATTACK_RANGE) {
+                    this.currentTarget = null;
+                    this.hideTargetIndicator();
+                } else {
+                    // Show target indicator
+                    this.showTargetIndicator(this.currentTarget);
+                    
+                    // Play attack animations for weapons
+                    this.playWeaponAttackAnimations();
+                    
+                    // Target is in range, attack it
+                    const combatSystem = (this.scene as any).combatSystem;
+                    if (combatSystem) {
+                        combatSystem.playerAttackMonster(this.currentTarget);
+                        this.attackCooldown = time + this.ATTACK_COOLDOWN;
+                    }
+                }
+            }
+        }
+
+        // If we don't have a target, look for the closest monster in range
+        if (!this.currentTarget) {
+            const monsterSystem = (this.scene as any).monsterSystem;
+            if (monsterSystem) {
+                const monsters = monsterSystem.getMonsters();
+                let closestMonster = null;
+                let closestDistance = this.ATTACK_RANGE;
+
+                // Find the closest monster in attack range
+                for (const monster of monsters) {
+                    if (monster.active && monster.currentState !== 'DEAD') {
+                        const distance = Phaser.Math.Distance.Between(
+                            this.player.x, this.player.y,
+                            monster.x, monster.y
+                        );
+
+                        if (distance < closestDistance) {
+                            closestMonster = monster;
+                            closestDistance = distance;
+                        }
+                    }
+                }
+
+                // Set the closest monster as our target
+                if (closestMonster) {
+                    this.currentTarget = closestMonster;
+                    this.showTargetIndicator(closestMonster);
+                }
+            }
+        }
+    }
+
+    /**
+     * Plays attack animations for equipped weapons
+     */
+    private playWeaponAttackAnimations(): void {
+        if (!this.equipmentSystem) return;
+        
+        // Get main hand weapon sprite
+        const mainHandSprite = this.equipmentSprites.get('mainHand');
+        if (mainHandSprite && mainHandSprite.visible) {
+            // Get the current texture key
+            const textureKey = mainHandSprite.texture.key;
+            
+            // Play attack animation
+            this.equipmentSystem.playEquipmentAnimation(mainHandSprite, textureKey, 'attack');
+            
+            // Reset to idle after attack animation completes
+            this.scene.time.delayedCall(500, () => {
+                if (mainHandSprite.active) {
+                    this.equipmentSystem?.playEquipmentAnimation(mainHandSprite, textureKey, 'idle');
+                }
+            });
+        }
+        
+        // Do the same for off-hand if it's a weapon
+        const offHandSprite = this.equipmentSprites.get('offHand');
+        if (offHandSprite && offHandSprite.visible) {
+            const textureKey = offHandSprite.texture.key;
+            
+            // Only play attack animation if it's a weapon (starts with 'weapon_')
+            if (textureKey.startsWith('weapon_')) {
+                this.equipmentSystem.playEquipmentAnimation(offHandSprite, textureKey, 'attack');
+                
+                this.scene.time.delayedCall(500, () => {
+                    if (offHandSprite.active) {
+                        this.equipmentSystem?.playEquipmentAnimation(offHandSprite, textureKey, 'idle');
+                    }
+                });
+            }
+        }
+    }
+
+    /**
+     * Shows a visual indicator around the current target
+     * @param target The target to highlight
+     */
+    private showTargetIndicator(target: any): void {
+        // Remove any existing indicator
+        this.hideTargetIndicator();
+        
+        // Create a new indicator
+        this.targetIndicator = this.scene.add.graphics();
+        this.targetIndicator.lineStyle(2, 0xff0000, 1);
+        this.targetIndicator.strokeCircle(target.x, target.y, target.width / 2 + 5);
+        this.targetIndicator.setDepth(target.depth + 1);
+    }
+    
+    /**
+     * Hides the target indicator
+     */
+    private hideTargetIndicator(): void {
+        if (this.targetIndicator) {
+            this.targetIndicator.destroy();
+            this.targetIndicator = null;
+        }
+    }
+
+    /**
+     * Sets a monster as the current auto-attack target
+     * @param target The monster to target
+     */
+    setTarget(target: any): void {
+        this.currentTarget = target;
+    }
+
+    /**
+     * Clears the current auto-attack target
+     */
+    clearTarget(): void {
+        this.currentTarget = null;
+    }
+
+    /**
+     * Checks if the player has an active target
+     * @returns True if the player has a target
+     */
+    hasTarget(): boolean {
+        return this.currentTarget !== null && this.currentTarget.active;
+    }
+
+    /**
+     * Updates the target indicator position
+     */
+    updateTargetIndicator(): void {
+        if (this.targetIndicator && this.currentTarget && this.currentTarget.active) {
+            this.targetIndicator.clear();
+            this.targetIndicator.lineStyle(2, 0xff0000, 1);
+            this.targetIndicator.strokeCircle(this.currentTarget.x, this.currentTarget.y, this.currentTarget.width / 2 + 5);
+        }
     }
 }

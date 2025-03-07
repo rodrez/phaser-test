@@ -1,0 +1,7 @@
+Healing Spruce is one of the most common flora found in Alternate Earth. It is most known for its unique ability to heal injuries of any who come near. Though its branches appear covered in sharp needles, they are actually lined with thin, soft leaves that exude a soothing energy. The Healing Spruce gets its name from an ancient tale of a great healer who, in their final act of kindness, imbued the trees with the power to mend wounds, ensuring no traveler would suffer alone.
+
+Regardless of legend, Healing Spruce provides several valuable benefits to adventurers. Like any tree, chopping it down yields Wood, but its most remarkable feature is its natural healing aura. Weary travelers often rest beneath its branches, where the gentle fragrance and restorative energy ease their wounds. The tree also produces Spruce Apples, which have similar healing properties when consumed. These Apples can be harvested and will regrow every 6 hours. If you wish to cultivate more Healing Spruce in new territories, the Apples also act as seeds and can be planted.
+
+healing_spruce_sapling.png
+Healing Spruce Sapling
+When you plant a Spruce Berry, it grows into a sapling. These young trees possess the same healing properties as mature ones. However, after a day, they will appear weak and require care to continue growing. With proper tending, they will mature in about 5 days. By planting multiple saplings at once, you can cultivate a forest of Healing Spruce, offering a renewable source of Spruce Apples or Wood.

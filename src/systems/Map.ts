@@ -395,7 +395,7 @@ export class MapSystem {
                 z-index: 10002 !important;
             }
             
-            /* Flag popup specific styles */
+            /* Flag popup specific styles - now using standardized popup styles */
             .flag-popup {
                 z-index: 10001 !important;
             }
@@ -407,7 +407,7 @@ export class MapSystem {
             }
             
             /* Ensure popup content is visible */
-            .flag-context-menu {
+            .popup-content {
                 opacity: 1 !important;
                 visibility: visible !important;
             }
@@ -424,7 +424,7 @@ export class MapSystem {
             }
             
             body .leaflet-popup-pane * {
-                pointer-events: auto !important;
+                z-index: 10002 !important;
             }
         `;
         document.head.appendChild(popupStyle);

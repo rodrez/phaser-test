@@ -53,6 +53,13 @@ export class CombatSystem {
             return;
         }
         
+        // Check if god mode is enabled - skip damage if it is
+        if (stats.godMode) {
+            // Still show damage text but with 0 damage
+            this.showDamageText(this.playerSystem.player, 0, false);
+            return;
+        }
+        
         // Calculate actual damage after defense
         const defense = stats.defense || 0;
         let actualDamage = Math.max(1, damageInfo.amount - defense);
@@ -63,6 +70,28 @@ export class CombatSystem {
         // Apply critical hit if applicable
         if (damageInfo.isCritical) {
             actualDamage = Math.floor(actualDamage * 1.5);
+        }
+        
+        // Get count of monsters currently attacking the player
+        const monsterSystem = (this.scene as any).monsterSystem;
+        let attackingMonsterCount = 1; // Default to 1
+        
+        if (monsterSystem) {
+            // Count monsters that are currently auto-attacking
+            attackingMonsterCount = monsterSystem.getAutoAttackingMonsters().length;
+            
+            // Ensure at least 1 for division
+            attackingMonsterCount = Math.max(1, attackingMonsterCount);
+            
+            // Apply diminishing returns for multiple attackers
+            // First attacker does full damage, each additional attacker does less
+            if (attackingMonsterCount > 1) {
+                // Formula: damage * (1 + 0.2 * (attackerCount - 1))
+                // This means 2 attackers = 1.2x total damage, 3 attackers = 1.4x, etc.
+                // So each additional attacker does less damage than the previous one
+                const totalDamageMultiplier = 1 + 0.2 * (attackingMonsterCount - 1);
+                actualDamage = Math.floor(actualDamage / totalDamageMultiplier);
+            }
         }
         
         // Reduce player health
@@ -80,7 +109,8 @@ export class CombatSystem {
             target: this.playerSystem.player,
             data: {
                 ...damageInfo,
-                actualDamage
+                actualDamage,
+                attackingMonsterCount
             }
         });
         
@@ -160,6 +190,9 @@ export class CombatSystem {
         
         // Apply damage to monster
         this.damageMonster(monster, damageInfo);
+        
+        // Set this monster as the current target for auto-attacking
+        this.playerSystem.setTarget(monster);
         
         // Trigger attack event
         this.triggerCombatEvent({

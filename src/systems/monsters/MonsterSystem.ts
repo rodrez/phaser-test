@@ -15,7 +15,7 @@ export class MonsterSystem {
     private monsterGroup: Physics.Arcade.Group;
     private monsterData: Map<MonsterType, MonsterData> = new Map();
     private spawnTimer: number = 0;
-    private maxMonsters: number = 20;
+    private maxMonsters: number = 15;
 
     constructor(scene: Scene, mapSystem: MapSystem, playerSystem: PlayerSystem, itemSystem: ItemSystem) {
         this.scene = scene;
@@ -39,7 +39,7 @@ export class MonsterSystem {
         );
         
         // Spawn initial monsters
-        this.spawnRandomMonsters(10, 800);
+        this.spawnRandomMonsters(8, 600);
     }
     
     private initializeMonsterData(): void {
@@ -51,7 +51,7 @@ export class MonsterSystem {
             attributes: {
                 health: 40,
                 maxHealth: 40,
-                damage: 15,
+                damage: 5,
                 defense: 2,
                 speed: 110,
                 detectionRadius: 150,
@@ -233,18 +233,31 @@ export class MonsterSystem {
             // Only spawn if we're below the monster limit
             if (this.monsters.length < this.maxMonsters) {
                 const spawnCount = Math.min(3, this.maxMonsters - this.monsters.length);
-                this.spawnRandomMonsters(spawnCount, 1000);
+                this.spawnRandomMonsters(spawnCount, 800);
             }
         }
     }
     
-    // Get all monsters
+    /**
+     * Get all monsters
+     */
     public getMonsters(): BaseMonster[] {
         return this.monsters;
     }
     
-    // Get the number of active monsters
+    /**
+     * Get the number of monsters
+     */
     public getMonsterCount(): number {
         return this.monsters.length;
+    }
+    
+    /**
+     * Get monsters that are currently auto-attacking the player
+     */
+    public getAutoAttackingMonsters(): BaseMonster[] {
+        return this.monsters.filter(monster => 
+            monster.active && monster.isAutoAttacking
+        );
     }
 } 

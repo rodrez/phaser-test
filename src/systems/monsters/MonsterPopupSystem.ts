@@ -68,9 +68,9 @@ export class MonsterPopupSystem {
         // Create HTML content for the popup
         const content: PopupContent = {
             html: `
-                <div class="monster-popup">
+                <div class="popup-content">
                     <h3>${monster.monsterName}</h3>
-                    <div class="monster-stats">
+                    <div class="popup-stats">
                         <div class="stat-row">
                             <span class="stat-label">Health:</span>
                             <span class="stat-value">${monster.attributes.health}/${monster.attributes.maxHealth}</span>
@@ -84,9 +84,9 @@ export class MonsterPopupSystem {
                             <span class="stat-value">${this.formatState(monster.currentState)}</span>
                         </div>
                     </div>
-                    <div class="monster-actions">
-                        <button class="monster-action-btn attack-btn" id="attack-monster-btn">Attack</button>
-                        <button class="monster-action-btn info-btn" id="monster-info-btn">More Info</button>
+                    <div class="popup-actions">
+                        <button class="popup-action-btn danger-btn" id="attack-monster-btn">Attack</button>
+                        <button class="popup-action-btn info-btn" id="monster-info-btn">More Info</button>
                     </div>
                 </div>
             `,
@@ -104,7 +104,7 @@ export class MonsterPopupSystem {
         
         // Configure popup options
         const options: PopupOptions = {
-            className: 'monster-popup-container',
+            className: 'popup-container monster-popup-container',
             closeButton: true,
             width: 280,
             offset: { x: 10, y: 10 },
@@ -140,6 +140,11 @@ export class MonsterPopupSystem {
         } else {
             // Fallback for backward compatibility
             monster.takeDamage(10); // Deal 10 damage to the monster
+            
+            // Set the monster as the current target for auto-attacking
+            if (scene.playerSystem) {
+                scene.playerSystem.setTarget(monster);
+            }
         }
         
         // Show feedback
@@ -157,19 +162,19 @@ export class MonsterPopupSystem {
         
         // Get loot table as formatted string
         const lootTableHtml = monster.lootTable.map(loot => 
-            `<div class="loot-item">
-                <span>${loot.itemId}</span>
-                <span>${loot.minQuantity}-${loot.maxQuantity}</span>
-                <span>${Math.round(loot.dropChance * 100)}%</span>
-            </div>`
+            `<tr>
+                <td>${loot.itemId}</td>
+                <td>${loot.minQuantity}-${loot.maxQuantity}</td>
+                <td>${Math.round(loot.dropChance * 100)}%</td>
+            </tr>`
         ).join('');
         
         // Create new content with detailed info
         const detailedContent: PopupContent = {
             html: `
-                <div class="monster-popup detailed">
+                <div class="popup-content detailed">
                     <h3>${monster.monsterName} Details</h3>
-                    <div class="monster-stats detailed">
+                    <div class="popup-stats">
                         <div class="stat-section">
                             <h4>Combat Stats</h4>
                             <div class="stat-row">
@@ -191,19 +196,23 @@ export class MonsterPopupSystem {
                         </div>
                         <div class="stat-section">
                             <h4>Potential Loot</h4>
-                            <div class="loot-table">
-                                <div class="loot-header">
-                                    <span>Item</span>
-                                    <span>Quantity</span>
-                                    <span>Chance</span>
-                                </div>
-                                ${lootTableHtml}
-                            </div>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Quantity</th>
+                                        <th>Chance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${lootTableHtml}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="monster-actions">
-                        <button class="monster-action-btn attack-btn" id="attack-monster-btn-2">Attack</button>
-                        <button class="monster-action-btn back-btn" id="back-btn">Back</button>
+                    <div class="popup-actions">
+                        <button class="popup-action-btn danger-btn" id="attack-monster-btn-2">Attack</button>
+                        <button class="popup-action-btn secondary-btn" id="back-btn">Back</button>
                     </div>
                 </div>
             `,
@@ -264,13 +273,13 @@ export class MonsterPopupSystem {
         // If we have an active popup and monster, update it
         if (this.activeMonsterPopup && this.clickTarget && this.clickTarget.active) {
             // Update only the dynamic content (like health)
-            const healthElement = this.activeMonsterPopup.querySelector('.monster-stats .stat-value');
+            const healthElement = this.activeMonsterPopup.querySelector('.popup-stats .stat-value');
             if (healthElement) {
                 healthElement.textContent = `${this.clickTarget.attributes.health}/${this.clickTarget.attributes.maxHealth}`;
             }
             
             // Update state if present
-            const stateElement = this.activeMonsterPopup.querySelector('.monster-stats .stat-value:nth-child(2)');
+            const stateElement = this.activeMonsterPopup.querySelector('.popup-stats .stat-value:nth-child(2)');
             if (stateElement) {
                 stateElement.textContent = this.formatState(this.clickTarget.currentState);
             }

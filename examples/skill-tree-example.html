@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medieval RPG Skill Tree</title>
+  <style>
+    :root {
+      --primary-color: #6a3805;
+      --secondary-color: #a67c52;
+      --text-color: #f8ebd2;
+      --highlight-color: #ffd700;
+      --unlocked-color: #4a7c59;
+      --locked-color: #555555;
+      --connection-color: #8a6f4a;
+      --background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" opacity="0.05"><path d="M0,0 L300,300 M300,0 L0,300" stroke="%236a3805" stroke-width="1"/></svg>');
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Cinzel', serif;
+      background-color: #2a2018;
+      color: var(--text-color);
+      background-image: var(--background-image);
+    }
+
+    header {
+      background-color: var(--primary-color);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 3px solid var(--secondary-color);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: space-between;
+      background-color: rgba(0, 0, 0, 0.3);
+      margin: 10px 0;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 1.2rem;
+    }
+
+    .container {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .skill-tree {
+      flex: 1;
+      position: relative;
+      margin-right: 20px;
+    }
+
+    .tier {
+      margin-bottom: 80px;
+      position: relative;
+    }
+
+    .tier-title {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+      color: var(--highlight-color);
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+    }
+
+    .tier-skills {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    .skill {
+      width: 100px;
+      height: 100px;
+      margin: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--locked-color);
+      border: 2px solid var(--connection-color);
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      opacity: 0.7;
+    }
+
+    .skill.available {
+      background-color: var(--secondary-color);
+      border-color: var(--highlight-color);
+      opacity: 1;
+    }
+
+    .skill.learned {
+      background-color: var(--unlocked-color);
+      border-color: var(--highlight-color);
+      opacity: 1;
+    }
+
+    .skill:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .skill-icon {
+      font-size: 2rem;
+      margin-bottom: 5px;
+    }
+
+    .skill-name {
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 0 5px;
+    }
+
+    .connection-line {
+      position: absolute;
+      background-color: var(--connection-color);
+      z-index: -1;
+    }
+
+    .connection-line.active {
+      background-color: var(--highlight-color);
+    }
+
+    .skill-details {
+      flex: 0 0 300px;
+      background-color: rgba(69, 41, 12, 0.8);
+      border: 2px solid var(--secondary-color);
+      border-radius: 10px;
+      padding: 20px;
+      height: fit-content;
+      position: sticky;
+      top: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    .skill-details h2 {
+      color: var(--highlight-color);
+      border-bottom: 2px solid var(--secondary-color);
+      padding-bottom: 10px;
+      margin-top: 0;
+    }
+
+    .detail-section {
+      margin-bottom: 20px;
+    }
+
+    .detail-section h3 {
+      color: var(--highlight-color);
+      margin-bottom: 10px;
+    }
+
+    .prerequisites {
+      color: #ff9966;
+    }
+
+    .btn {
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+      font-weight: bold;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background-color: var(--highlight-color);
+      color: var(--primary-color);
+    }
+
+    .btn:disabled {
+      background-color: var(--locked-color);
+      cursor: not-allowed;
+    }
+
+    .specialization {
+      background-color: rgba(136, 14, 79, 0.7);
+    }
+
+    .reset-section {
+      margin-top: 30px;
+      text-align: center;
+      padding-top: 20px;
+      border-top: 2px solid var(--secondary-color);
+    }
+    
+    .tier-4 {
+      margin-top: 100px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      background-color: var(--primary-color);
+      margin-top: 40px;
+      border-top: 3px solid var(--secondary-color);
+    }
+
+    @media (max-width: 1100px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .skill-details {
+        margin-top: 30px;
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Skill Tree Mastery</h1>
+    <div class="stats-bar">
+      <div>Level: <span id="player-level">10</span></div>
+      <div>Available Points: <span id="skill-points">5</span></div>
+      <div>Food: <span id="food-count">750</span></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="skill-tree" id="skill-tree">
+      <!-- Tier 1 Skills -->
+      <div class="tier tier-1">
+        <div class="tier-title">Tier 1 (Core Skills)</div>
+        <div class="tier-skills" id="tier-1">
+          <!-- Skills will be added via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Tier 2 Skills -->
+      <div class="tier tier-2">
+        <div class="tier-title">Tier 2 (Intermediate Skills)</div>
+        <div class="tier-skills" id="tier-2">
+          <!-- Skills will be added via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Tier 3 Skills -->
+      <div class="tier tier-3">
+        <div class="tier-title">Tier 3 (Advanced Skills)</div>
+        <div class="tier-skills" id="tier-3">
+          <!-- Skills will be added via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Tier 4 Skills -->
+      <div class="tier tier-4">
+        <div class="tier-title">Tier 4 (Expert Skills)</div>
+        <div class="tier-skills" id="tier-4">
+          <!-- Skills will be added via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <div class="skill-details" id="skill-details">
+      <h2>Skill Details</h2>
+      <div id="selected-skill-info">
+        <p>Select a skill to view details</p>
+      </div>
+
+      <div class="reset-section">
+        <p>Reset all skills for <span id="reset-cost">500</span> Food</p>
+        <button class="btn" id="reset-btn">Reset Skills</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Medieval RPG Skill Tree System - Choose wisely, adventurer!</p>
+  </footer>
+
+  <script>
+    // Define skill data
+    const skillData = {
+      tier1: [
+        { id: 'archery', name: 'Archery', icon: '🏹', description: 'Master the bow and arrow, increasing ranged damage by 15%.', effect: '+15% Ranged Damage' },
+        { id: 'cleave', name: 'Cleave', icon: '⚔️', description: 'A powerful melee attack that hits multiple enemies in front of you.', effect: 'Hit up to 3 enemies with a single strike' },
+        { id: 'oiyoi', name: 'Oiyoi Martial Art', icon: '👊', description: 'Ancient martial art focusing on precise strikes and inner power.', effect: '+10% Critical Hit Chance' },
+        { id: 'tactics', name: 'Tactics', icon: '📜', description: 'Knowledge of battle strategies that improves your overall combat efficiency.', effect: '+5% to all combat stats' }
+      ],
+      tier2: [
+        { id: 'scavenge', name: 'Scavenge', icon: '🔍', description: 'Find more resources when exploring the world.', effect: '+25% resource gathering', requires: ['archery'] },
+        { id: 'hunters-eye', name: 'Hunter\'s Eye', icon: '👁️', description: 'Spot enemy weaknesses, increasing your critical hit chance.', effect: '+15% Critical Hit chance', requires: ['archery'] },
+        { id: 'blacksmithing', name: 'Blacksmithing', icon: '🔨', description: 'Craft and improve metal weapons and armor.', effect: 'Craft tier 2 weapons and armor', requires: ['cleave'] },
+        { id: 'alchemy', name: 'Alchemy', icon: '⚗️', description: 'Create potions and elixirs with magical properties.', effect: 'Craft healing and buff potions', requires: ['tactics'] }
+      ],
+      tier3: [
+        { id: 'troodont-doctrine', name: 'Troodont Doctrine', icon: '🦖', description: 'Ancient knowledge of the Troodont species.', effect: '+20% damage against reptilian enemies', prerequisites: 'Collect 5 Troodont Scales from the Cavern dungeon', requires: ['hunters-eye'] },
+        { id: 'leatherworking', name: 'Leatherworking', icon: '🧵', description: 'Craft light armor and accessories from animal hides.', effect: 'Craft tier 3 light armor', requires: ['scavenge'] },
+        { id: 'troll-lore', name: 'Troll Lore', icon: '👹', description: 'Knowledge of troll weaknesses and behavior.', effect: '+25% damage against trolls', prerequisites: 'Give 5 Roc Eggs to a Troll Hut', requires: ['hunters-eye'] },
+        { id: 'relentless-assault', name: 'Relentless Assault', icon: '⚡', description: 'Continue attacking without pause, building up combat momentum.', effect: 'Each consecutive hit increases damage by 5%', requires: ['blacksmithing'] },
+        { id: 'warden-knowledge', name: 'Warden Knowledge', icon: '🌳', description: 'Wisdom from the ancient forest wardens.', effect: '+20% nature resistance', prerequisites: 'Give 25 Acorns to the Warden', requires: ['alchemy'] },
+        { id: 'serenity', name: 'Serenity', icon: '☯️', description: 'Find inner peace, allowing better focus in combat.', effect: 'Reduce incoming damage by 10%', requires: ['oiyoi'] },
+        { id: 'oiyoi-strike', name: 'Oiyoi Strike', icon: '✨', description: 'Channel chi energy into devastating strikes.', effect: '25% chance to stun enemies for 2s', prerequisites: 'Empower yourself with 5 Chi', requires: ['oiyoi'] },
+        { id: 'shield-charge', name: 'Shield Charge', icon: '🛡️', description: 'Rush forward with your shield, knocking back enemies.', effect: 'Knock back enemies 5 meters', requires: ['cleave'] },
+        { id: 'dragon-master', name: 'Dragon Master', icon: '🐉', description: 'Command the power of dragons.', effect: '+30% fire damage', prerequisites: 'Must be Level 25 and place 5 Dragon Eggs in nest', requires: ['tactics'] },
+        { id: 'cartography', name: 'Cartography', icon: '🗺️', description: 'Create and read maps with greater accuracy.', effect: 'Reveal unexplored areas on map', requires: ['scavenge'] },
+        { id: 'aquarian-inscriptions', name: 'Aquarian Inscriptions', icon: '🌊', description: 'Ancient underwater writing that grants water powers.', effect: '+30% swimming speed, underwater breathing', prerequisites: 'Present 18 Khaos Orbs to a Sunken City', requires: ['alchemy'] },
+        { id: 'rally-cry', name: 'Rally Cry', icon: '📣', description: 'Inspire allies with a powerful battle cry.', effect: '+15% damage for all party members for 30s', requires: ['tactics'] },
+        { id: 'monolith-drafting', name: 'Monolith Drafting', icon: '🗿', description: 'Create powerful stone structures with magical properties.', effect: 'Can build magic stone constructs', prerequisites: 'Collect 150 Stonecore Sparks', requires: ['blacksmithing'] },
+        { id: 'taunt', name: 'Taunt', icon: '😠', description: 'Provoke enemies to attack you instead of allies.', effect: 'Force enemies to attack you for 6s', requires: ['cleave'] },
+        { id: 'deathsoar-judgement', name: 'Deathsoar Judgement', icon: '⚖️', description: 'Call upon the power of the Deathsoar to judge enemies.', effect: 'Instantly kill enemies below 15% health', requires: ['hunters-eye'] },
+        { id: 'fatality', name: 'Fatality', icon: '💀', description: 'Execute weakened enemies with a devastating final blow.', effect: '300% damage to enemies below 20% health', requires: ['relentless-assault'] }
+      ],
+      tier4: [
+        { id: 'heroism', name: 'Heroism', icon: '👑', description: 'Perform heroic feats that inspire allies and intimidate enemies.', effect: '+20% to all stats for 15s', requires: ['dragon-master', 'rally-cry'] },
+        { id: 'cleanse', name: 'Cleanse', icon: '✨', description: 'Remove negative effects from yourself and allies.', effect: 'Remove all debuffs and heal 15% HP', requires: ['warden-knowledge', 'serenity'] },
+        { id: 'focus', name: 'Focus', icon: '🎯', description: 'Enter a state of perfect concentration.', effect: '100% critical hit chance for 5s', requires: ['oiyoi-strike', 'deathsoar-judgement'] },
+        { id: 'bond', name: 'Bond', icon: '🤝', description: 'Form a spiritual bond with an animal companion.', effect: 'Summon an animal companion that fights alongside you', requires: ['troodont-doctrine', 'cartography'] },
+        { id: 'pierce-armor', name: 'Pierce Armor', icon: '🗡️', description: 'Find gaps in enemy armor, ignoring defense.', effect: 'Ignore 50% of enemy armor', requires: ['leatherworking', 'fatality'] },
+        { id: 'plague-strike', name: 'Plague Strike', icon: '☠️', description: 'Infect enemies with a deadly plague.', effect: 'Deal 10% of max health as damage over 10s', requires: ['aquarian-inscriptions', 'monolith-drafting'] }
+      ],
+      specializations: {
+        archery: ['militia', 'ranger', 'mercenary'],
+        cleave: ['knight', 'legion', 'warrior'],
+        oiyoi: ['assassin', 'ninja', 'oiyoi-master', 'thief'],
+        tactics: ['merchant', 'crafter', 'druid', 'explorer']
+      }
+    };
+
+    // Player data
+    const playerData = {
+      level: 10,
+      skillPoints: 5,
+      food: 750,
+      learnedSkills: ['archery', 'cleave'],
+      isPlatinum: false
+    };
+
+    // DOM elements
+    const skillPointsElement = document.getElementById('skill-points');
+    const playerLevelElement = document.getElementById('player-level');
+    const foodCountElement = document.getElementById('food-count');
+    const resetCostElement = document.getElementById('reset-cost');
+    const resetButton = document.getElementById('reset-btn');
+    const selectedSkillInfoElement = document.getElementById('selected-skill-info');
+
+    // Initialize the UI
+    function initializeUI() {
+      // Update player stats
+      updatePlayerStats();
+      
+      // Populate skill tree
+      populateSkillTree();
+      
+      // Add event listeners
+      resetButton.addEventListener('click', resetSkills);
+    }
+
+    // Update player stats display
+    function updatePlayerStats() {
+      skillPointsElement.textContent = playerData.skillPoints;
+      playerLevelElement.textContent = playerData.level;
+      foodCountElement.textContent = playerData.food;
+      resetCostElement.textContent = playerData.isPlatinum ? '250' : '500';
+    }
+
+    // Create skill element
+    function createSkillElement(skill, tierId) {
+      const skillElement = document.createElement('div');
+      skillElement.className = 'skill';
+      skillElement.id = skill.id;
+      skillElement.dataset.tier = tierId.replace('tier-', '');
+      
+      // Check if skill is learned
+      if (playerData.learnedSkills.includes(skill.id)) {
+        skillElement.classList.add('learned');
+      } else {
+        // Check if skill is available to learn
+        const isAvailable = checkSkillAvailability(skill);
+        if (isAvailable) {
+          skillElement.classList.add('available');
+        }
+      }
+      
+      skillElement.innerHTML = `
+        <div class="skill-icon">${skill.icon}</div>
+        <div class="skill-name">${skill.name}</div>
+      `;
+      
+      skillElement.addEventListener('click', () => selectSkill(skill));
+      
+      return skillElement;
+    }
+
+    // Check if a skill is available to learn
+    function checkSkillAvailability(skill) {
+      if (!skill.requires) return true;
+      
+      // Check if all required skills are learned
+      return skill.requires.every(reqSkill => playerData.learnedSkills.includes(reqSkill));
+    }
+
+    // Populate the skill tree
+    function populateSkillTree() {
+      // Tier 1
+      const tier1Element = document.getElementById('tier-1');
+      skillData.tier1.forEach(skill => {
+        tier1Element.appendChild(createSkillElement(skill, 'tier-1'));
+      });
+      
+      // Tier 2
+      const tier2Element = document.getElementById('tier-2');
+      skillData.tier2.forEach(skill => {
+        tier2Element.appendChild(createSkillElement(skill, 'tier-2'));
+      });
+      
+      // Tier 3
+      const tier3Element = document.getElementById('tier-3');
+      skillData.tier3.forEach(skill => {
+        tier3Element.appendChild(createSkillElement(skill, 'tier-3'));
+      });
+      
+      // Tier 4
+      const tier4Element = document.getElementById('tier-4');
+      skillData.tier4.forEach(skill => {
+        tier4Element.appendChild(createSkillElement(skill, 'tier-4'));
+      });
+      
+      // Draw connection lines after elements are created
+      setTimeout(drawConnectionLines, 100);
+    }
+
+    // Draw connection lines between skills
+    function drawConnectionLines() {
+      // Clear existing lines
+      const existingLines = document.querySelectorAll('.connection-line');
+      existingLines.forEach(line => line.remove());
+      
+      // Draw lines for tier 2 skills
+      skillData.tier2.forEach(skill => {
+        if (skill.requires) {
+          skill.requires.forEach(reqId => {
+            drawLine(reqId, skill.id);
+          });
+        }
+      });
+      
+      // Draw lines for tier 3 skills
+      skillData.tier3.forEach(skill => {
+        if (skill.requires) {
+          skill.requires.forEach(reqId => {
+            drawLine(reqId, skill.id);
+          });
+        }
+      });
+      
+      // Draw lines for tier 4 skills
+      skillData.tier4.forEach(skill => {
+        if (skill.requires) {
+          skill.requires.forEach(reqId => {
+            drawLine(reqId, skill.id);
+          });
+        }
+      });
+    }
+
+    // Draw a line connecting two skills
+    function drawLine(fromId, toId) {
+      const fromElement = document.getElementById(fromId);
+      const toElement = document.getElementById(toId);
+      
+      if (!fromElement || !toElement) return;
+      
+      const fromRect = fromElement.getBoundingClientRect();
+      const toRect = toElement.getBoundingClientRect();
+      
+      const treeRect = document.getElementById('skill-tree').getBoundingClientRect();
+      
+      const fromX = fromRect.left + fromRect.width / 2 - treeRect.left;
+      const fromY = fromRect.top + fromRect.height / 2 - treeRect.top;
+      const toX = toRect.left + toRect.width / 2 - treeRect.left;
+      const toY = toRect.top + toRect.height / 2 - treeRect.top;
+      
+      const angle = Math.atan2(toY - fromY, toX - fromX) * 180 / Math.PI;
+      const length = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+      
+      const line = document.createElement('div');
+      line.className = 'connection-line';
+      
+      if (playerData.learnedSkills.includes(fromId) && playerData.learnedSkills.includes(toId)) {
+        line.classList.add('active');
+      }
+      
+      line.style.width = `${length}px`;
+      line.style.height = '3px';
+      line.style.transformOrigin = '0 0';
+      line.style.transform = `translate(${fromX}px, ${fromY}px) rotate(${angle}deg)`;
+      
+      document.getElementById('skill-tree').appendChild(line);
+    }
+
+    // Select a skill to display details
+    function selectSkill(skill) {
+      const isLearned = playerData.learnedSkills.includes(skill.id);
+      const isAvailable = checkSkillAvailability(skill);
+      const canLearn = isAvailable && !isLearned && playerData.skillPoints > 0;
+      
+      let specializations = '';
+      if (skillData.specializations[skill.id]) {
+        const specs = skillData.specializations[skill.id];
+        specializations = `
+          <div class="detail-section">
+            <h3>Unlocks Specializations:</h3>
+            <ul>
+              ${specs.map(spec => `<li>${spec.charAt(0).toUpperCase() + spec.slice(1)} Training</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+      
+      let prerequisites = '';
+      if (skill.prerequisites) {
+        prerequisites = `
+          <div class="detail-section">
+            <h3>Prerequisites:</h3>
+            <p class="prerequisites">${skill.prerequisites}</p>
+          </div>
+        `;
+      }
+      
+      selectedSkillInfoElement.innerHTML = `
+        <div class="detail-section">
+          <h3>${skill.name} ${skill.icon}</h3>
+          <p>${skill.description}</p>
+        </div>
+        <div class="detail-section">
+          <h3>Effect:</h3>
+          <p>${skill.effect}</p>
+        </div>
+        ${prerequisites}
+        ${specializations}
+        <button class="btn" id="learn-btn" ${canLearn ? '' : 'disabled'}>
+          ${isLearned ? 'Already Learned' : canLearn ? 'Learn Skill' : 'Not Available'}
+        </button>
+      `;
+      
+      // Add event listener to learn button
+      const learnButton = document.getElementById('learn-btn');
+      if (learnButton && canLearn) {
+        learnButton.addEventListener('click', () => learnSkill(skill));
+      }
+    }
+
+    // Learn a new skill
+    function learnSkill(skill) {
+      if (playerData.skillPoints <= 0) return;
+      
+      playerData.learnedSkills.push(skill.id);
+      playerData.skillPoints--;
+      
+      updatePlayerStats();
+      
+      // Update skill element
+      const skillElement = document.getElementById(skill.id);
+      skillElement.classList.remove('available');
+      skillElement.classList.add('learned');
+      
+      // Update available skills
+      updateAvailableSkills();
+      
+      // Redraw connection lines
+      drawConnectionLines();
+      
+      // Update skill details
+      selectSkill(skill);
+    }
+
+    // Update which skills are available after learning a new skill
+    function updateAvailableSkills() {
+      const allSkills = [...skillData.tier1, ...skillData.tier2, ...skillData.tier3, ...skillData.tier4];
+      
+      allSkills.forEach(skill => {
+        if (!playerData.learnedSkills.includes(skill.id)) {
+          const skillElement = document.getElementById(skill.id);
+          if (skillElement) {
+            const isAvailable = checkSkillAvailability(skill);
+            
+            if (isAvailable) {
+              skillElement.classList.add('available');
+            } else {
+              skillElement.classList.remove('available');
+            }
+          }
+        }
+      });
+    }
+
+    // Reset all skills
+    function resetSkills() {
+      const resetCost = playerData.isPlatinum ? 250 : 500;
+      
+      if (playerData.food < resetCost) {
+        alert("You don't have enough food to reset your skills!");
+        return;
+      }
+      
+      if (confirm("Are you sure you want to reset all your skills? This will cost " + resetCost + " food.")) {
+        playerData.food -= resetCost;
+        playerData.skillPoints += playerData.learnedSkills.length;
+        playerData.learnedSkills = [];
+        
+        updatePlayerStats();
+        
+        // Update all skill elements
+        const allSkillElements = document.querySelectorAll('.skill');
+        allSkillElements.forEach(element => {
+          element.classList.remove('learned');
+        });
+        
+        // Update tier 1 skills to be available
+        skillData.tier1.forEach(skill => {
+          const skillElement = document.getElementById(skill.id);
+          if (skillElement) {
+            skillElement.classList.add('available');
+          }
+        });
+        
+        // Remove available class from other tiers
+        [...skillData.tier2, ...skillData.tier3, ...skillData.tier4].forEach(skill => {
+          const skillElement = document.getElementById(skill.id);
+          if (skillElement) {
+            skillElement.classList.remove('available');
+          }
+        });
+        
+        // Redraw connection lines
+        drawConnectionLines();
+        
+        // Reset skill details
+        selectedSkillInfoElement.innerHTML = '<p>Select a skill to view details</p>';
+      }
+    }
+
+    // Initialize the UI when the page loads
+    window.addEventListener('load', initializeUI);
+  </script>
+</body>
+</html>

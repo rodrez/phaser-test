@@ -44,16 +44,16 @@ export class ContextMenuSystem {
             width: config.width || 250,
             itemHeight: config.itemHeight || 40,
             background: {
-                color: config.background?.color || 0x222222,
-                alpha: config.background?.alpha || 0.9,
-                radius: config.background?.radius || 8
+                color: config.background?.color || 0x2a1a0a, // Dark brown background
+                alpha: config.background?.alpha || 0.95,
+                radius: config.background?.radius || 0 // Square corners for medieval look
             },
             text: {
-                color: config.text?.color || '#FFFFFF',
-                fontFamily: config.text?.fontFamily || 'Arial',
+                color: config.text?.color || '#e8d4b9', // Light parchment color
+                fontFamily: config.text?.fontFamily || 'Cinzel, Times New Roman, serif', // Medieval-style font
                 fontSize: config.text?.fontSize || '16px'
             },
-            hoverColor: config.hoverColor || 0x444444,
+            hoverColor: config.hoverColor || 0x4a3520, // Dark brown hover
             iconSize: config.iconSize || 24
         };
 
@@ -148,6 +148,10 @@ export class ContextMenuSystem {
         this.background.fillStyle(this.config.background!.color!, this.config.background!.alpha!);
         this.background.fillRoundedRect(-width/2, -totalHeight/2, width, totalHeight, this.config.background!.radius!);
         
+        // Add border for medieval look
+        this.background.lineStyle(3, 0x8b5a2b, 1); // Brown border
+        this.background.strokeRoundedRect(-width/2, -totalHeight/2, width, totalHeight, this.config.background!.radius!);
+        
         console.log(`Drawing menu with ${this.options.length} options`);
         
         // Create menu items
@@ -160,6 +164,17 @@ export class ContextMenuSystem {
             bg.setOrigin(0.5);
             bg.setInteractive({ useHandCursor: true });
             
+            // Add separator line between items (except for the last one)
+            if (i < this.options.length - 1) {
+                const separator = this.scene.add.graphics();
+                separator.lineStyle(1, 0x8b5a2b, 0.5); // Brown separator
+                separator.beginPath();
+                separator.moveTo(-width/2 + 10, yPos + this.config.itemHeight!/2);
+                separator.lineTo(width/2 - 10, yPos + this.config.itemHeight!/2);
+                separator.strokePath();
+                this.container.add(separator);
+            }
+            
             // Make disabled options appear grayed out
             const textColor = option.enabled === false ? '#666666' : this.config.text!.color;
             
@@ -171,6 +186,9 @@ export class ContextMenuSystem {
                 color: textColor
             });
             text.setOrigin(0, 0.5);
+            
+            // Add text shadow for medieval look
+            text.setShadow(1, 1, 'rgba(0,0,0,0.5)', 2);
             
             // Create icon if provided
             let icon;
@@ -211,11 +229,15 @@ export class ContextMenuSystem {
             if (option.enabled !== false) {
                 bg.on('pointerover', () => {
                     bg.setFillStyle(this.config.hoverColor!);
+                    // Add a gold border on hover for medieval look
+                    bg.setStrokeStyle(2, 0xc8a165);
                     this.selectedIndex = i;
                 });
                 
                 bg.on('pointerout', () => {
                     bg.setFillStyle(0x000000, 0);
+                    // Remove border on pointer out
+                    bg.setStrokeStyle(0);
                     this.selectedIndex = -1;
                 });
                 
@@ -314,12 +336,16 @@ export class ContextMenuSystem {
         // Clear previous selection
         if (this.selectedIndex >= 0 && this.selectedIndex < this.optionItems.length) {
             this.optionItems[this.selectedIndex].background.setFillStyle(0x000000, 0);
+            // Remove border on previous selection
+            this.optionItems[this.selectedIndex].background.setStrokeStyle(0);
         }
         
         // Set new selection
         this.selectedIndex = newIndex;
         if (this.selectedIndex >= 0 && this.selectedIndex < this.optionItems.length) {
             this.optionItems[this.selectedIndex].background.setFillStyle(this.config.hoverColor!);
+            // Add gold border to new selection for medieval look
+            this.optionItems[this.selectedIndex].background.setStrokeStyle(2, 0xc8a165);
         }
     }
 } 

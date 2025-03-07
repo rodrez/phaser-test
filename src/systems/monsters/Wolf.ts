@@ -162,7 +162,7 @@ export class Wolf extends BaseMonster {
         }
         
         // If we're close enough to attack
-        if (distToPlayer < 40) {
+        if (distToPlayer < this.ATTACK_RANGE) {
             this.changeState(MonsterState.ATTACKING);
             return;
         }
@@ -187,13 +187,16 @@ export class Wolf extends BaseMonster {
     }
     
     protected handleAttackingState(time: number, delta: number, distToPlayer: number): void {
+        // Set auto-attacking flag when in attack state
+        this.isAutoAttacking = true;
+        
         // If we haven't set up the attack cooldown yet
         if (this.attackCooldown <= 0) {
             // Attack the player
             this.attackPlayer();
             
             // Set cooldown for next attack
-            this.attackCooldown = 1000; // 1 second cooldown
+            this.attackCooldown = 3000; // Increased from 1000 to 3000 ms (3 seconds) for more turn-based combat
         }
         
         // Stop moving while attacking
@@ -203,7 +206,8 @@ export class Wolf extends BaseMonster {
         this.attackCooldown -= delta;
         
         // If player moves out of attack range, chase them
-        if (distToPlayer > 40) {
+        if (distToPlayer > this.ATTACK_RANGE) {
+            this.isAutoAttacking = false;
             this.changeState(MonsterState.CHASING);
             return;
         }

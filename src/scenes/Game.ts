@@ -14,6 +14,7 @@ import { MonsterSystem } from '../systems/monsters/MonsterSystem';
 import { MonsterPopupSystem } from '../systems/monsters/MonsterPopupSystem';
 import { PopupSystem } from '../systems/PopupSystem';
 import { CombatSystem } from '../systems/Combat';
+import { EquipmentSystem } from '../systems/Equipment';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -68,6 +69,10 @@ export class Game extends Scene {
         equipped: any;
         flags: any[];
         isAggressive: boolean;
+        godMode: boolean; // Add god mode property, disabled by default
+        healingAuraAmount: number;
+        healingAuraInterval: number;
+        healingStatusText?: Phaser.GameObjects.Text;
     };
 
     // Add context menu property
@@ -91,6 +96,9 @@ export class Game extends Scene {
     
     // Monster popup system
     monsterPopupSystem!: MonsterPopupSystem;
+    
+    // Equipment system
+    equipmentSystem!: EquipmentSystem;
 
     constructor() {
         super({ key: 'Game' });
@@ -106,6 +114,13 @@ export class Game extends Scene {
     }
 
     preload() {
+        // Load the Cinzel font for medieval RPG theme
+        const fontStyle = document.createElement('style');
+        fontStyle.innerHTML = `
+            @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+        `;
+        document.head.appendChild(fontStyle);
+        
         // Load player assets
         this.load.spritesheet('player', 'assets/player.png', { frameWidth: 32, frameHeight: 48 });
         
@@ -131,6 +146,12 @@ export class Game extends Scene {
         // Load wolf as a single image instead of a spritesheet for now
         // This prevents animation errors if the spritesheet format is incorrect
         this.load.image('wolf', 'assets/monsters/wolf.png');
+        
+        // Initialize equipment system
+        this.equipmentSystem = new EquipmentSystem(this);
+        
+        // Preload equipment assets
+        this.equipmentSystem.preloadEquipmentAssets();
     }
 
     create() {
@@ -263,6 +284,9 @@ export class Game extends Scene {
         this.skillManager.initialize(5, createAllSkills()); // Start with 5 skill points
         
         console.log('Game started! 🎮');
+        
+        // Create equipment animations
+        this.equipmentSystem.createEquipmentAnimations();
     }
 
     /**
@@ -434,22 +458,28 @@ export class Game extends Scene {
      * Set up keyboard input for player movement
      */
     setupPlayerInput() {
-        // Set up WASD and arrow keys for movement
+        // Movement keys
         this.keyW = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W);
         this.keyA = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.keyS = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.keyD = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D);
         
+        // Arrow keys
         this.keyUp = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
         this.keyLeft = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
         this.keyDown = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
         this.keyRight = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
         
-        // Add 'A' key to toggle aggression mode
-        const toggleKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T);
-        toggleKey.on('down', () => {
+        // Add 'T' key to toggle aggression mode
+        this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T).on('down', () => {
             this.toggleAggression();
             console.log(`Aggression mode: ${this.playerStats.isAggressive ? 'Aggressive' : 'Passive'}`);
+        });
+        
+        // Add G key for toggling god mode
+        this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.G).on('down', () => {
+            // Toggle god mode when G is pressed
+            this.toggleGodMode();
         });
     }
 
@@ -464,6 +494,14 @@ export class Game extends Scene {
         
         // Handle player movement based on input keys
         this.playerSystem.handlePlayerMovement();
+        
+        // Handle auto-attacking if player is in aggressive mode
+        if (this.playerStats.isAggressive) {
+            this.playerSystem.autoAttack(time);
+        }
+        
+        // Update target indicator
+        this.playerSystem.updateTargetIndicator();
         
         // Update UI
         this.uiSystem.updateUI();
@@ -703,7 +741,10 @@ export class Game extends Scene {
             inventory: [],
             equipped: {},
             flags: [],
-            isAggressive: false
+            isAggressive: true, // Set to true by default so auto-attack works
+            godMode: false, // Add god mode property, disabled by default
+            healingAuraAmount: 10,
+            healingAuraInterval: 1000,
         };
     }
 
@@ -791,6 +832,14 @@ export class Game extends Scene {
                     this.toggleAggression();
                 },
                 icon: this.playerStats.isAggressive ? 'icon-passive' : 'icon-aggressive'
+            },
+            {
+                text: this.playerStats.godMode ? 'Disable God Mode' : 'Enable God Mode',
+                callback: () => {
+                    console.log('Toggling god mode');
+                    this.toggleGodMode();
+                },
+                icon: 'icon-shield'
             },
             {
                 text: 'Rest',
@@ -952,17 +1001,28 @@ Gold: ${this.playerStats.gold}`;
         // Show healing effect (example)
         try {
             const healText = this.add.text(this.player.x, this.player.y - 40, `+${healAmount} HP`, {
-                color: '#00FF00',
-                fontSize: '20px'
-            });
-            healText.setOrigin(0.5);
+                fontSize: '18px',
+                fontFamily: 'Cinzel, Times New Roman, serif',
+                color: '#a0e8a0', // Light green
+                stroke: '#2a1a0a', // Dark brown stroke
+                strokeThickness: 4,
+                align: 'center',
+                shadow: {
+                    offsetX: 2,
+                    offsetY: 2,
+                    color: '#000',
+                    blur: 4,
+                    fill: true
+                }
+            }).setOrigin(0.5);
             
             // Animate and remove the text
             this.tweens.add({
                 targets: healText,
-                y: healText.y - 50,
+                y: healText.y - 30,
                 alpha: 0,
-                duration: 1500,
+                duration: 2000,
+                ease: 'Cubic.easeOut',
                 onComplete: () => {
                     healText.destroy();
                 }
@@ -1077,10 +1137,18 @@ Gold: ${this.playerStats.gold}`;
                         // Show notification
                         const treeMessage = this.add.text(tree.x, tree.y - 50, message, {
                             fontSize: '16px',
-                            color: '#ffffff',
-                            stroke: '#000000',
-                            strokeThickness: 3,
-                            align: 'center'
+                            fontFamily: 'Cinzel, Times New Roman, serif',
+                            color: '#e8d4b9', // Light parchment color
+                            stroke: '#2a1a0a', // Dark brown stroke
+                            strokeThickness: 4,
+                            align: 'center',
+                            shadow: {
+                                offsetX: 2,
+                                offsetY: 2,
+                                color: '#000',
+                                blur: 4,
+                                fill: true
+                            }
                         }).setOrigin(0.5);
                         
                         // Add a nice fade out effect
@@ -1161,18 +1229,30 @@ Gold: ${this.playerStats.gold}`;
             // No fruits found
             const noFruitsMsg = this.add.text(tree.x, tree.y - 50, "No fruits to gather!", {
                 fontSize: '16px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 3
+                fontFamily: 'Cinzel, Times New Roman, serif',
+                color: '#e8d4b9', // Light parchment color
+                stroke: '#2a1a0a', // Dark brown stroke
+                strokeThickness: 4,
+                align: 'center',
+                shadow: {
+                    offsetX: 2,
+                    offsetY: 2,
+                    color: '#000',
+                    blur: 4,
+                    fill: true
+                }
             }).setOrigin(0.5);
             
-            // Fade out and destroy
+            // Add a nice fade out effect
             this.tweens.add({
                 targets: noFruitsMsg,
-                alpha: 0,
                 y: noFruitsMsg.y - 30,
+                alpha: 0,
                 duration: 2000,
-                onComplete: () => noFruitsMsg.destroy()
+                ease: 'Cubic.easeOut',
+                onComplete: () => {
+                    noFruitsMsg.destroy();
+                }
             });
             
             return;
@@ -1199,9 +1279,18 @@ Gold: ${this.playerStats.gold}`;
                     // Show a message that player is moving to the tree
                     const moveMsg = this.add.text(player.x, player.y - 20, "Moving to tree...", {
                         fontSize: '14px',
-                        color: '#ffffff',
-                        stroke: '#000000',
-                        strokeThickness: 2
+                        fontFamily: 'Cinzel, Times New Roman, serif',
+                        color: '#e8d4b9', // Light parchment color
+                        stroke: '#2a1a0a', // Dark brown stroke
+                        strokeThickness: 3,
+                        align: 'center',
+                        shadow: {
+                            offsetX: 1,
+                            offsetY: 1,
+                            color: '#000',
+                            blur: 2,
+                            fill: true
+                        }
                     }).setOrigin(0.5);
                     
                     // Fade out and destroy
@@ -1340,10 +1429,18 @@ Gold: ${this.playerStats.gold}`;
                         // Display the message
                         const gatherMsg = this.add.text(tree.x, tree.y - 50, message, {
                             fontSize: '16px',
-                            color: '#ffffff',
-                            stroke: '#000000',
-                            strokeThickness: 3,
-                            align: 'center'
+                            fontFamily: 'Cinzel, Times New Roman, serif',
+                            color: '#e8d4b9', // Light parchment color
+                            stroke: '#2a1a0a', // Dark brown stroke
+                            strokeThickness: 4,
+                            align: 'center',
+                            shadow: {
+                                offsetX: 2,
+                                offsetY: 2,
+                                color: '#000',
+                                blur: 4,
+                                fill: true
+                            }
                         }).setOrigin(0.5);
                         
                         // Fade out and destroy
@@ -1395,9 +1492,18 @@ Gold: ${this.playerStats.gold}`;
                     // Show a message that player is moving to the tree
                     const moveMsg = this.add.text(player.x, player.y - 20, "Moving to tree...", {
                         fontSize: '14px',
-                        color: '#ffffff',
-                        stroke: '#000000',
-                        strokeThickness: 2
+                        fontFamily: 'Cinzel, Times New Roman, serif',
+                        color: '#e8d4b9', // Light parchment color
+                        stroke: '#2a1a0a', // Dark brown stroke
+                        strokeThickness: 3,
+                        align: 'center',
+                        shadow: {
+                            offsetX: 1,
+                            offsetY: 1,
+                            color: '#000',
+                            blur: 2,
+                            fill: true
+                        }
                     }).setOrigin(0.5);
                     
                     // Fade out and destroy
@@ -1471,9 +1577,18 @@ Gold: ${this.playerStats.gold}`;
                 // Display the message
                 const woodMsg = this.add.text(tree.x, tree.y - 50, message, {
                     fontSize: '16px',
-                    color: '#ffffff',
-                    stroke: '#000000',
-                    strokeThickness: 3
+                    fontFamily: 'Cinzel, Times New Roman, serif',
+                    color: '#e8d4b9', // Light parchment color
+                    stroke: '#2a1a0a', // Dark brown stroke
+                    strokeThickness: 4,
+                    align: 'center',
+                    shadow: {
+                        offsetX: 2,
+                        offsetY: 2,
+                        color: '#000',
+                        blur: 4,
+                        fill: true
+                    }
                 }).setOrigin(0.5);
                 
                 // Fade out and destroy
@@ -1599,10 +1714,18 @@ Gold: ${this.playerStats.gold}`;
                     
                     const fruitMessage = this.add.text(fruit.x, fruit.y - 30, message, {
                         fontSize: '16px',
-                        color: '#ffffff',
-                        stroke: '#000000',
-                        strokeThickness: 3,
-                        align: 'center'
+                        fontFamily: 'Cinzel, Times New Roman, serif',
+                        color: '#e8d4b9', // Light parchment color
+                        stroke: '#2a1a0a', // Dark brown stroke
+                        strokeThickness: 4,
+                        align: 'center',
+                        shadow: {
+                            offsetX: 2,
+                            offsetY: 2,
+                            color: '#000',
+                            blur: 4,
+                            fill: true
+                        }
                     }).setOrigin(0.5);
                     
                     // Add a nice fade out effect
@@ -1620,10 +1743,18 @@ Gold: ${this.playerStats.gold}`;
                     // Inventory is full, show a message
                     const fullMessage = this.add.text(fruit.x, fruit.y - 30, "Inventory is full!", {
                         fontSize: '16px',
-                        color: '#ff0000',
-                        stroke: '#000000',
-                        strokeThickness: 3,
-                        align: 'center'
+                        fontFamily: 'Cinzel, Times New Roman, serif',
+                        color: '#e8d4b9', // Light parchment color
+                        stroke: '#2a1a0a', // Dark brown stroke
+                        strokeThickness: 4,
+                        align: 'center',
+                        shadow: {
+                            offsetX: 2,
+                            offsetY: 2,
+                            color: '#000',
+                            blur: 4,
+                            fill: true
+                        }
                     }).setOrigin(0.5);
                     
                     // Add a nice fade out effect
@@ -1705,6 +1836,19 @@ Gold: ${this.playerStats.gold}`;
             if (data.item) {
                 const message = `Equipped ${data.item.name}`;
                 this.uiSystem.showMessage(message, 'info');
+            }
+        });
+        
+        // Listen for equipment changes to update visuals
+        this.inventorySystem.on('item-equipped', (data: any) => {
+            if (data.equipmentSlot && this.playerSystem) {
+                this.playerSystem.updateEquipmentVisual(data.equipmentSlot);
+            }
+        });
+        
+        this.inventorySystem.on('item-unequipped', (data: any) => {
+            if (data.equipmentSlot && this.playerSystem) {
+                this.playerSystem.hideEquipmentVisual(data.equipmentSlot);
             }
         });
     }
@@ -2098,25 +2242,33 @@ Gold: ${this.playerStats.gold}`;
      * @param amount Amount of healing applied
      */
     showHealingIndicator(amount: number): void {
-        // Create a floating text indicator
         const healText = this.add.text(
             this.player.x, 
             this.player.y - 40, 
-            `+${amount} ❤️`, 
+            `+${amount} HP`, 
             {
-                fontSize: '16px',
-                color: '#00ff00',
-                stroke: '#000000',
-                strokeThickness: 3
+                fontSize: '18px',
+                fontFamily: 'Cinzel, Times New Roman, serif',
+                color: '#a0e8a0', // Light green
+                stroke: '#2a1a0a', // Dark brown stroke
+                strokeThickness: 4,
+                align: 'center',
+                shadow: {
+                    offsetX: 2,
+                    offsetY: 2,
+                    color: '#000',
+                    blur: 4,
+                    fill: true
+                }
             }
         ).setOrigin(0.5);
         
-        // Animate the text floating up and fading out
+        // Animate and remove the text
         this.tweens.add({
             targets: healText,
             y: healText.y - 30,
             alpha: 0,
-            duration: 1500,
+            duration: 2000,
             ease: 'Cubic.easeOut',
             onComplete: () => {
                 healText.destroy();
@@ -2128,58 +2280,45 @@ Gold: ${this.playerStats.gold}`;
      * Show a status effect indicator for being in a Healing Spruce aura
      */
     showHealingSpruceStatus(): void {
-        // Check if status already exists
-        if (this.player.getData('healingSpruceStatus')) {
-            return;
-        }
+        // If we already have a status text, remove it
+        this.hideHealingSpruceStatus();
         
-        // Create a status effect icon near the player
-        const statusIcon = this.add.image(this.player.x, this.player.y - 50, 'particle')
-            .setTint(0x00ff00)
-            .setAlpha(0.8)
-            .setScale(0.5)
-            .setDepth(100);
-        
-        // Add a pulsing effect
-        this.tweens.add({
-            targets: statusIcon,
-            scale: { from: 0.5, to: 0.7 },
-            alpha: { from: 0.8, to: 0.6 },
-            duration: 1000,
-            yoyo: true,
-            repeat: -1
-        });
-        
-        // Create text label
+        // Create new status text
         const statusText = this.add.text(
-            statusIcon.x + 15, 
-            statusIcon.y, 
-            "Healing Aura", 
+            this.player.x + 100,
+            this.player.y - 100,
+            `Healing Aura Active\n+10 HP every 5s`,
             {
-                fontSize: '12px',
-                color: '#ffffff',
-                stroke: '#000000',
-                strokeThickness: 2
+                fontSize: '14px',
+                fontFamily: 'Cinzel, Times New Roman, serif',
+                color: '#a0e8a0', // Light green
+                stroke: '#2a1a0a', // Dark brown stroke
+                strokeThickness: 3,
+                align: 'center',
+                shadow: {
+                    offsetX: 1,
+                    offsetY: 1,
+                    color: '#000',
+                    blur: 2,
+                    fill: true
+                }
             }
-        ).setOrigin(0, 0.5).setDepth(100);
+        ).setOrigin(0.5);
         
-        // Group the status elements
-        const statusGroup = this.add.container(0, 0, [statusIcon, statusText]);
-        
-        // Store the status on the player
-        this.player.setData('healingSpruceStatus', statusGroup);
-        
-        // Update the status position in the game loop
-        this.events.on('update', this.updateHealingSpruceStatus, this);
+        // Store reference to the text
+        this.playerStats.healingStatusText = statusText;
     }
     
     /**
      * Update the position of the healing spruce status effect
      */
     updateHealingSpruceStatus(): void {
-        const statusGroup = this.player.getData('healingSpruceStatus');
-        if (statusGroup && this.player) {
-            statusGroup.setPosition(this.player.x - 50, this.player.y - 50);
+        // Update the position of the status text to follow the player
+        if (this.playerStats.healingStatusText) {
+            this.playerStats.healingStatusText.setPosition(
+                this.player.x + 100,
+                this.player.y - 100
+            );
         }
     }
     
@@ -2187,11 +2326,10 @@ Gold: ${this.playerStats.gold}`;
      * Hide the Healing Spruce status effect
      */
     hideHealingSpruceStatus(): void {
-        const statusGroup = this.player.getData('healingSpruceStatus');
-        if (statusGroup) {
-            statusGroup.destroy();
-            this.player.setData('healingSpruceStatus', null);
-            this.events.off('update', this.updateHealingSpruceStatus, this);
+        // Remove the status text if it exists
+        if (this.playerStats.healingStatusText) {
+            this.playerStats.healingStatusText.destroy();
+            this.playerStats.healingStatusText = undefined;
         }
     }
 
@@ -2243,5 +2381,13 @@ Gold: ${this.playerStats.gold}`;
                 statusGroup.destroy();
             }
         }
+    }
+
+    /**
+     * Toggle god mode
+     */
+    toggleGodMode(): void {
+        this.playerStats.godMode = !this.playerStats.godMode;
+        this.uiSystem.setGodMode(this.playerStats.godMode);
     }
 }

@@ -9,6 +9,7 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
     public attributes: MonsterAttributes;
     public lootTable: MonsterLoot[];
     public currentState: MonsterState = MonsterState.IDLE;
+    public isAutoAttacking: boolean = false;
 
     protected spawnPoint: PhaserMath.Vector2;
     protected wanderTarget: PhaserMath.Vector2 | null = null;
@@ -18,6 +19,10 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
 
     protected playerSprite: Physics.Arcade.Sprite;
     protected itemSystem: ItemSystem;
+    
+    // Auto-attack properties
+    protected readonly ATTACK_RANGE: number = 40; // Range at which monster can attack player
+    protected attackIndicator: GameObjects.Graphics | null = null;
 
     protected healthBar: GameObjects.Graphics;
 
@@ -98,18 +103,54 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
     }
 
     public takeDamage(amount: number): void {
-        // Apply defense reduction
+        // Calculate actual damage after defense
         const actualDamage = Math.max(1, amount - this.attributes.defense);
+        
+        // Reduce health
         this.attributes.health -= actualDamage;
         
-        // Update the health bar
+        // Update health bar
         this.updateHealthBar();
         
         // Show damage text
+        this.showDamageText(actualDamage);
+        
+        // Check if dead
+        if (this.attributes.health <= 0) {
+            this.die();
+            return;
+        }
+        
+        // Set auto-attacking flag when damaged
+        this.isAutoAttacking = true;
+        
+        // React based on behavior
+        switch (this.behavior) {
+            case MonsterBehavior.PASSIVE:
+                this.changeState(MonsterState.FLEEING);
+                break;
+                
+            case MonsterBehavior.NEUTRAL:
+                // Neutral monsters become aggressive when attacked
+                this.changeState(MonsterState.CHASING);
+                break;
+                
+            case MonsterBehavior.AGGRESSIVE:
+            case MonsterBehavior.TERRITORIAL:
+                this.changeState(MonsterState.CHASING);
+                break;
+        }
+    }
+
+    /**
+     * Shows a floating damage text above the monster
+     * @param amount The amount of damage to display
+     */
+    protected showDamageText(amount: number): void {
         const damageText = this.scene.add.text(
             this.x, 
             this.y - this.height / 2, 
-            `-${actualDamage}`, 
+            `-${amount}`, 
             { fontFamily: 'Arial', fontSize: '16px', color: '#FF0000' }
         );
         
@@ -120,15 +161,6 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
             duration: 800,
             onComplete: () => damageText.destroy()
         });
-        
-        // Check if monster is dead
-        if (this.attributes.health <= 0) {
-            this.die();
-        } else if (this.behavior === MonsterBehavior.PASSIVE) {
-            this.changeState(MonsterState.FLEEING);
-        } else if (this.behavior === MonsterBehavior.NEUTRAL || this.behavior === MonsterBehavior.TERRITORIAL) {
-            this.changeState(MonsterState.CHASING);
-        }
     }
 
     /**
@@ -151,19 +183,22 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
     }
 
     protected die(): void {
-        this.changeState(MonsterState.DEAD);
+        // Set state to dead
+        this.currentState = MonsterState.DEAD;
+        
+        // Clear auto-attacking flag and hide indicator
+        this.isAutoAttacking = false;
+        this.hideAttackIndicator();
         
         // Drop loot
         this.dropLoot();
         
-        // Play death animation or sound
+        // Play death animation or effect
         this.scene.tweens.add({
             targets: this,
             alpha: 0,
             duration: 1000,
             onComplete: () => {
-                // Clean up
-                this.healthBar.destroy();
                 this.destroy();
             }
         });
@@ -209,6 +244,14 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
         // Update health bar position
         this.updateHealthBar();
         
+        // Update attack indicator
+        if (this.isAutoAttacking) {
+            this.showAttackIndicator();
+            this.updateAttackIndicator();
+        } else {
+            this.hideAttackIndicator();
+        }
+        
         // Calculate distance to player
         const distToPlayer = Phaser.Math.Distance.Between(
             this.x, this.y,
@@ -253,7 +296,7 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
 
     protected setNewWanderTarget(): void {
         // Set a random point within a certain radius of the spawn point
-        const wanderRadius = 100;
+        const wanderRadius = 30;
         const angle = Math.random() * Math.PI * 2;
         const distance = Math.random() * wanderRadius;
         
@@ -285,6 +328,41 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
         } catch (error) {
             console.error(`Error playing animation ${key}:`, error);
             return false;
+        }
+    }
+
+    /**
+     * Shows a visual indicator that this monster is attacking the player
+     */
+    protected showAttackIndicator(): void {
+        // Remove any existing indicator
+        this.hideAttackIndicator();
+        
+        // Create a new indicator
+        this.attackIndicator = this.scene.add.graphics();
+        this.attackIndicator.lineStyle(2, 0xff0000, 1);
+        this.attackIndicator.lineBetween(this.x, this.y, this.playerSprite.x, this.playerSprite.y);
+        this.attackIndicator.setDepth(this.depth - 1);
+    }
+    
+    /**
+     * Hides the attack indicator
+     */
+    protected hideAttackIndicator(): void {
+        if (this.attackIndicator) {
+            this.attackIndicator.destroy();
+            this.attackIndicator = null;
+        }
+    }
+    
+    /**
+     * Updates the attack indicator position
+     */
+    protected updateAttackIndicator(): void {
+        if (this.attackIndicator && this.isAutoAttacking) {
+            this.attackIndicator.clear();
+            this.attackIndicator.lineStyle(2, 0xff0000, 1);
+            this.attackIndicator.lineBetween(this.x, this.y, this.playerSprite.x, this.playerSprite.y);
         }
     }
 } 

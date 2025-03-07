@@ -119,4 +119,39 @@
 
     If you die, a Lich version of yourself is created with equivalent strength weapons and armor which will fight alongside you. The Lich has no special abilities. It's weapon/defense items are destroyed when the Lich is destroyed. The Lich does not heal and lasts for 1 day. You can not have more than 1 Lich at a time, i.e. if you die again your first Lich is destroyed and another one is spawned. Also if you were killed by another player and your dead armor takes the last blow you will lose 3 of your max HP instead of 5.
 
-    Liches now also have to ability to heal which acts as if they are eating a mourning berry.
+    Liches now also have to ability to heal which acts as if they are eating a mourning Apple.
+
+## CONSUMABLES
+
+A Mourning Apple is the magically healing fruit that is found on Mourning Trees all around the Parallel Kingdom world.
+
+
+
+### Where To Find
+Tap on a Mourning Tree and select "Harvest".
+One Apple will be placed in your inventory.
+If you have Warden Knowledge Level 3, you could get TWO Apples!
+Occasionally dropped by Trolls and Mistleterrors (see below)
+
+
+### Used For
+- Healing Yourself (Tap yourself, or Apple in inventory)
+- Healing your Pets (Tap the pet)
+- Healing your Summoned Trolls (Tap one of them)
+- Planting a Mourning Tree Sapling
+- "Make Peace With Trolls"
+- At your City's Troll Embassy
+- By tapping any Troll if you have Troll Lore Level 3
+- Building a Troll Embassy in your City (if you are Mayor)
+- Buying Mourning Elixir to restore Max HP at a Troll Hut
+- Crafting Apple Punch
+- Druids use Apples to replenish others
+- Luring Sewer Turtles out of their shells
+
+
+### Advanced Details
+- Healing lasts for 45 seconds
+- 3-9 HP are restored every 2.5 seconds
+- Average total HP restored over 45 seconds is approximately 100-110
+- Warden 3 gives you a 15% chance of harvesting two Apples
+- A "Harvesting/Harvester" Ring equipped increases that to 18-24%

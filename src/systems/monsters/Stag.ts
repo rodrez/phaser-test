@@ -186,6 +186,7 @@ export class Stag extends BaseMonster {
     protected handleAttackingState(time: number, delta: number, distToPlayer: number): void {
         // Stags only attack when enraged
         if (!this.isEnraged) {
+            this.isAutoAttacking = false;
             this.changeState(MonsterState.FLEEING);
             return;
         }
@@ -193,18 +194,22 @@ export class Stag extends BaseMonster {
         // No animations to play - using static image
         
         // If player is too far, chase them
-        if (distToPlayer > 50) {
+        if (distToPlayer > this.ATTACK_RANGE) {
+            this.isAutoAttacking = false;
             this.changeState(MonsterState.CHASING);
             return;
         }
         
-        // Attack the player if very close (within 20 pixels)
-        if (distToPlayer < 20 && time > this.stateTimer) {
+        // Set auto-attacking flag when in attack state
+        this.isAutoAttacking = true;
+        
+        // Attack the player if very close and cooldown has expired
+        if (distToPlayer <= this.ATTACK_RANGE && time > this.stateTimer) {
             // Attack the player
             this.attackPlayer();
             
             // Set cooldown for next attack
-            this.stateTimer = time + 1500; // 1.5 second cooldown for stag attacks
+            this.stateTimer = time + 3000; // Increased from 1500 to 3000 ms (3 seconds) for more turn-based combat
         }
         
         // Generate random movement in blind rage (stags go blind in rage according to lore)
@@ -219,6 +224,7 @@ export class Stag extends BaseMonster {
         this.enrageTimer += delta;
         if (this.enrageTimer > this.ENRAGE_DURATION) {
             this.isEnraged = false;
+            this.isAutoAttacking = false;
             this.changeState(MonsterState.FLEEING);
         }
     }

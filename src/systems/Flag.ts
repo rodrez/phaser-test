@@ -645,7 +645,7 @@ export class FlagSystem {
         
         // Create the popup
         this.popupSystem.createPopup(flag.lat, flag.lon, popupContent, {
-            className: 'flag-popup',
+            className: 'popup-container flag-popup',
             offset: { x: 0, y: -30 }
         });
     }
@@ -659,52 +659,52 @@ export class FlagSystem {
         const isHardened = flag.hardened || false;
         
         return `
-            <div class="flag-menu-container">
-                <div class="flag-header">
-                    <h3>${flag.name}</h3>
-                    <div class="flag-type">${flag.isPlayerFlag ? 'Your Flag' : 'Other Player\'s Flag'}</div>
-                </div>
-                
-                <div class="flag-info">
-                    <div class="info-item">
-                        <span class="info-label">Created:</span>
-                        <span class="info-value">${flag.creationDate ? flag.creationDate.toLocaleString() : 'Unknown'}</span>
+            <div class="popup-content">
+                <h3>${flag.name}</h3>
+                <div class="popup-stats">
+                    <div class="stat-row">
+                        <span class="stat-label">Type:</span>
+                        <span class="stat-value">${flag.isPlayerFlag ? 'Your Flag' : 'Other Player\'s Flag'}</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Created:</span>
+                        <span class="stat-value">${flag.creationDate ? flag.creationDate.toLocaleString() : 'Unknown'}</span>
                     </div>
                     ${flag.health !== undefined ? `
-                    <div class="info-item">
-                        <span class="info-label">Health:</span>
-                        <span class="info-value health-indicator" style="color: ${flag.health > 70 ? 'green' : flag.health > 30 ? 'orange' : 'red'}">
+                    <div class="stat-row">
+                        <span class="stat-label">Health:</span>
+                        <span class="stat-value" style="color: ${flag.health > 70 ? '#4caf50' : flag.health > 30 ? '#ff9800' : '#f44336'}">
                             ${flag.health}%
                         </span>
                     </div>
                     ` : ''}
                     ${flag.hardened !== undefined ? `
-                    <div class="info-item">
-                        <span class="info-label">Hardened:</span>
-                        <span class="info-value">${flag.hardened ? '✅ Yes' : '❌ No'}</span>
+                    <div class="stat-row">
+                        <span class="stat-label">Hardened:</span>
+                        <span class="stat-value">${flag.hardened ? '✅ Yes' : '❌ No'}</span>
                     </div>
                     ` : ''}
                 </div>
                 
-                <div class="flag-actions">
-                    <button class="flag-action-button jump-to-flag" data-flag-id="${flag.id}">
-                        <span class="action-icon">🌀</span> Jump to Flag
+                <div class="popup-actions">
+                    <button class="popup-action-btn primary-btn jump-to-flag" data-flag-id="${flag.id}">
+                        Jump to Flag
                     </button>
                     
                     ${canRepair ? `
-                    <button class="flag-action-button repair-flag" data-flag-id="${flag.id}">
-                        <span class="action-icon">🔧</span> Repair Flag
+                    <button class="popup-action-btn secondary-btn repair-flag" data-flag-id="${flag.id}">
+                        Repair Flag
                     </button>
                     ` : ''}
                     
                     ${!isHardened ? `
-                    <button class="flag-action-button harden-flag" data-flag-id="${flag.id}">
-                        <span class="action-icon">🛡️</span> Harden Flag
+                    <button class="popup-action-btn info-btn harden-flag" data-flag-id="${flag.id}">
+                        Harden Flag
                     </button>
                     ` : ''}
                     
-                    <button class="flag-action-button destroy-flag danger" data-flag-id="${flag.id}">
-                        <span class="action-icon">💥</span> Destroy Flag
+                    <button class="popup-action-btn danger-btn destroy-flag" data-flag-id="${flag.id}">
+                        Destroy Flag
                     </button>
                 </div>
             </div>
