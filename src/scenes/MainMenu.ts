@@ -44,6 +44,19 @@ export class MainMenu extends Scene
             align: 'center'
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
+        // Add Inventory Demo button
+        const inventoryDemoButton = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY + 100, 'Inventory Demo', { 
+            fontSize: '24px', 
+            color: '#ffffff',
+            backgroundColor: '#333333',
+            padding: { left: 10, right: 10, top: 5, bottom: 5 }
+        });
+        inventoryDemoButton.setOrigin(0.5);
+        inventoryDemoButton.setInteractive({ useHandCursor: true });
+        inventoryDemoButton.on('pointerdown', () => {
+            this.scene.start('InventoryDemoScene');
+        });
+
         // Add hover effects
         gameButton.on('pointerover', () => gameButton.setTint(0xffff00));
         gameButton.on('pointerout', () => gameButton.clearTint());

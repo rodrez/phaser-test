@@ -16,6 +16,7 @@ import { PopupSystem } from '../systems/PopupSystem';
 import { CombatSystem } from '../systems/Combat';
 import { EquipmentSystem } from '../systems/Equipment';
 import { Environment } from '../systems/environment/Environment';
+import { MedievalVitalsIntegration } from '../ui/MedievalVitalsIntegration';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -100,6 +101,9 @@ export class Game extends Scene {
     
     // Equipment system
     equipmentSystem!: EquipmentSystem;
+
+    // Medieval Vitals UI
+    medievalVitals?: MedievalVitalsIntegration;
 
     constructor() {
         super({ key: 'Game' });
@@ -219,12 +223,22 @@ export class Game extends Scene {
         // Set up inventory events
         this.setupInventoryEvents();
         
-        // Create UI system after player stats initialization
-        this.uiSystem = new UISystem(this);
-
+        // The mapSystem is already initialized above, don't initialize it again
+        // this.mapSystem = new MapSystem(this);
+        
+        // Replace the UISystem with MedievalVitals
+        // this.uiSystem = new UISystem(this);
+        this.medievalVitals = new MedievalVitalsIntegration(this);
+        this.medievalVitals.initialize();
+        
+        // Show welcome message
+        if (this.medievalVitals) {
+            this.medievalVitals.showMessage('Welcome to the game!', 'info', 5000);
+        }
+        
         // Set up keyboard input for player movement
         this.setupPlayerInput();
-
+        
         // Initialize player system and create player
         this.playerSystem = new PlayerSystem(this);
         
@@ -282,9 +296,6 @@ export class Game extends Scene {
             this.startGameplay();
         });
 
-        // Initialize flag system
-        this.flagSystem = new FlagSystem(this, this.mapSystem, this.popupSystem);
-
         // Initialize skill system
         this.skillManager = new SkillManager(this);
         this.skillManager.initialize(5, createAllSkills()); // Start with 5 skill points
@@ -293,6 +304,9 @@ export class Game extends Scene {
         
         // Create equipment animations
         this.equipmentSystem.createEquipmentAnimations();
+
+        // Initialize flag system
+        this.flagSystem = new FlagSystem(this, this.mapSystem, this.popupSystem);
     }
 
     /**
@@ -496,11 +510,13 @@ export class Game extends Scene {
         // Update target indicator
         this.playerSystem.updateTargetIndicator();
         
-        // Update UI
-        this.uiSystem.updateUI();
-        
-        // Sync aggression state from player stats to UI
-        this.uiSystem.setAggression(this.playerStats.isAggressive);
+        // Update UI - use MedievalVitals instead of uiSystem
+        if (this.medievalVitals) {
+            this.medievalVitals.update(time, delta);
+        }
+        // Comment out old UI system calls
+        // this.uiSystem.updateUI();
+        // this.uiSystem.setAggression(this.playerStats.isAggressive);
         
         // Check if player is within any healing aura
         this.checkHealingAuras();
@@ -1031,7 +1047,15 @@ Gold: ${this.playerStats.gold}`;
      */
     toggleAggression(): void {
         this.playerStats.isAggressive = !this.playerStats.isAggressive;
-        this.uiSystem.setAggression(this.playerStats.isAggressive);
+        
+        // Emit event for the Medieval Vitals UI
+        this.events.emit('player-aggression-changed', this.playerStats.isAggressive);
+        
+        // Show message
+        const message = this.playerStats.isAggressive ? 'Aggressive mode enabled' : 'Passive mode enabled';
+        if (this.medievalVitals) {
+            this.medievalVitals.showMessage(message, this.playerStats.isAggressive ? 'warning' : 'info');
+        }
     }
 
     /**
@@ -2371,6 +2395,14 @@ Gold: ${this.playerStats.gold}`;
      */
     toggleGodMode(): void {
         this.playerStats.godMode = !this.playerStats.godMode;
-        this.uiSystem.setGodMode(this.playerStats.godMode);
+        
+        // Emit event for the Medieval Vitals UI
+        this.events.emit('player-god-mode-changed', this.playerStats.godMode);
+        
+        // Show message
+        const message = this.playerStats.godMode ? 'God Mode enabled' : 'God Mode disabled';
+        if (this.medievalVitals) {
+            this.medievalVitals.showMessage(message, this.playerStats.godMode ? 'success' : 'info');
+        }
     }
 }

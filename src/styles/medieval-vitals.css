@@ -2,192 +2,131 @@
 
 /* Vitals container specific styles */
 .vitals-container {
-    max-width: 350px;
-    min-width: 300px;
+    max-width: 300px;
+    min-width: 250px;
+    background: #2a1a0a; /* Dark brown background */
+    color: #e8d4b9; /* Light parchment text color */
+    border-radius: 8px; /* Rounded corners */
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.3);
-    transition: all 0.3s ease;
-    /* Add a subtle upward animation when the container appears */
-    animation: slideUp 0.5s ease-out;
+    border: 3px solid;
+    border-image: linear-gradient(to bottom, #c8a165, #8b5a2b) 1;
+    padding: 10px;
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    z-index: 1000;
+    font-family: 'Cinzel', 'Times New Roman', serif; /* Medieval-style font */
+    font-weight: bold;
+    /* Add a subtle parchment texture */
+    background-image: url('data:image/png;base64,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');
+    /* Add a subtle inner glow */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.2);
 }
 
-/* Compact version styles */
-.vitals-container.compact {
-    max-width: 280px;
-    min-width: 220px;
-    font-size: 12px;
-    border-width: 2px;
-}
-
-/* Ultra-compact version styles */
-.vitals-container.ultra-compact {
-    max-width: 180px;
-    min-width: 150px;
-    font-size: 10px;
-    border-width: 1px;
-    padding: 5px !important;
-    border-radius: 5px;
-}
-
-/* Add a subtle hover effect */
-.vitals-container:hover {
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(200, 161, 101, 0.4);
-    transform: translateY(-5px);
-}
-
-/* Animation for the vitals container appearing from the bottom */
-@keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-/* Custom scrollwork for vitals container */
-.vitals-container:before,
-.vitals-container:after {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    opacity: 0.7;
-}
-
-/* Smaller decorations for compact version */
-.vitals-container.compact:before,
-.vitals-container.compact:after {
-    width: 14px;
-    height: 14px;
-}
-
-.vitals-container:before {
-    top: 5px;
-    left: 5px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238b5a2b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>');
-}
-
-.vitals-container:after {
-    top: 5px;
-    right: 5px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%238b5a2b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>');
-}
-
-/* Custom styles for vitals title */
-.vitals-container h3 {
-    margin-top: 5px;
-    margin-bottom: 15px;
-    font-size: 22px;
-    letter-spacing: 1.5px;
-}
-
-/* Ultra-compact title styles */
-.vitals-container.ultra-compact h3 {
-    margin: 0 0 5px 0;
-    font-size: 12px;
-    padding-bottom: 3px;
-    letter-spacing: 0.5px;
-}
-
-/* Compact title styles */
-.vitals-container h3.compact-title {
-    margin-top: 2px;
+/* Stat row styles */
+.stat-row {
+    display: flex;
+    align-items: center;
     margin-bottom: 8px;
-    font-size: 16px;
-    letter-spacing: 1px;
-    padding-bottom: 5px;
 }
 
-/* Custom styles for stat rows in vitals */
-.vitals-container .stat-row {
-    margin-bottom: 8px;
-    padding-bottom: 5px;
-    border-bottom: 1px dotted rgba(232, 212, 185, 0.4);
-}
-
-/* Ultra-compact stat row styles */
-.vitals-container.ultra-compact .stat-row {
-    margin-bottom: 2px;
-    padding-bottom: 1px;
-    border-bottom: none;
-}
-
-/* Compact stat row styles */
-.vitals-container.compact .stat-row {
-    margin-bottom: 3px;
-    padding-bottom: 2px;
-}
-
-/* Custom styles for stat labels in vitals */
-.vitals-container .stat-label {
+.stat-label {
+    font-weight: bold;
+    color: #f0c070; /* Golden color */
+    width: 30px;
+    text-align: left;
     font-size: 16px;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-/* Ultra-compact stat label styles */
-.vitals-container.ultra-compact .stat-label {
-    font-size: 10px;
+.stat-value {
+    color: #e8d4b9;
+    margin-left: 10px;
+    font-size: 14px;
 }
 
-/* Compact stat label styles */
-.vitals-container.compact .stat-label {
-    font-size: 12px;
-}
-
-/* Custom styles for stat values in vitals */
-.vitals-container .stat-value {
-    font-size: 16px;
-    font-weight: bold;
-}
-
-/* Ultra-compact stat value styles */
-.vitals-container.ultra-compact .stat-value {
-    font-size: 10px;
-}
-
-/* Compact stat value styles */
-.vitals-container.compact .stat-value {
-    font-size: 12px;
-}
-
-/* Custom styles for progress bars in vitals */
-.vitals-container .progress-bar {
-    height: 10px;
-    margin-top: 5px;
-    margin-bottom: 10px;
+/* Progress bar styles */
+.progress-bar {
+    height: 12px;
     background-color: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(200, 161, 101, 0.5);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-grow: 1;
+    margin-left: 10px;
 }
 
-/* Ultra-compact progress bar styles */
-.vitals-container.ultra-compact .progress-bar {
-    height: 4px;
-    margin-top: 1px;
-    margin-bottom: 3px;
-    border-width: 0;
-}
-
-/* Compact progress bar styles */
-.vitals-container.compact .progress-bar {
-    height: 6px;
-    margin-top: 3px;
-    margin-bottom: 6px;
-    border-width: 1px;
-}
-
-/* Custom styles for progress fills in vitals */
-.vitals-container .progress-fill {
+.progress-fill {
     height: 100%;
-    transition: width 0.5s ease, background-color 0.5s ease;
+    transition: width 0.5s ease;
     box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.3);
 }
 
-/* Add a pulsing effect to low health */
+/* HP bar specific styles */
+.progress-fill.health {
+    background-color: #c0392b; /* Red color for health */
+}
+
+/* XP bar specific styles */
+.progress-fill.xp {
+    background-color: #3498db; /* Blue color for XP */
+}
+
+/* Gold display styles */
+.gold-display {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.gold-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle at 30% 30%, #ffd700, #b8860b);
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 1px solid #8b5a2b;
+    box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.8), 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+.gold-value {
+    color: #ffd700; /* Gold color */
+    font-size: 16px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Action button styles */
+.action-button {
+    width: 32px;
+    height: 32px;
+    background-color: #27ae60; /* Green color */
+    border-radius: 50%;
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    border: 2px solid #2ecc71;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+}
+
+.action-button:hover {
+    background-color: #2ecc71;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Animation for low health */
 @keyframes pulse {
     0% { opacity: 0.7; }
     50% { opacity: 1; }
     100% { opacity: 0.7; }
 }
 
-.vitals-container .progress-fill.danger {
+.progress-fill.danger {
     animation: pulse 1.5s infinite;
 }
 
@@ -219,110 +158,6 @@
 @keyframes scaleIn {
     from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
     to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-
-/* Gold display specific styles */
-.gold-display {
-    display: flex;
-    align-items: center;
-}
-
-.gold-icon {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    background: radial-gradient(circle at 30% 30%, #ffd700, #b8860b);
-    border-radius: 50%;
-    margin-right: 5px;
-    border: 1px solid #8b5a2b;
-    box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.8), 0 0 5px rgba(255, 215, 0, 0.5);
-    position: relative;
-    overflow: hidden;
-}
-
-/* Ultra-compact gold icon */
-.vitals-container.ultra-compact .gold-icon {
-    width: 8px;
-    height: 8px;
-    margin-right: 2px;
-    border-width: 0;
-}
-
-/* Shine effect for gold icon */
-.gold-icon:after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(transparent, rgba(255, 255, 255, 0.4), transparent);
-    transform: rotate(30deg);
-    animation: goldShine 3s infinite;
-}
-
-/* Compact gold icon */
-.vitals-container.compact .gold-icon {
-    width: 12px;
-    height: 12px;
-    margin-right: 3px;
-}
-
-/* Gold value styling */
-.gold-value {
-    color: #ffd700;
-    text-shadow: 0 0 3px rgba(184, 134, 11, 0.7);
-    font-weight: bold;
-}
-
-/* Animation for gold shine effect */
-@keyframes goldShine {
-    0% { transform: translateX(-100%) rotate(30deg); }
-    20% { transform: translateX(100%) rotate(30deg); }
-    100% { transform: translateX(100%) rotate(30deg); }
-}
-
-/* Add a decorative icon for combat mode */
-.combat-indicator {
-    display: flex;
-    align-items: center;
-}
-
-.combat-indicator-circle {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-right: 5px;
-    transition: background-color 0.3s ease;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-}
-
-/* Ultra-compact combat indicator */
-.vitals-container.ultra-compact .combat-indicator-circle {
-    width: 6px;
-    height: 6px;
-    margin-right: 2px;
-}
-
-/* Compact combat indicator styles */
-.vitals-container.compact .combat-indicator-circle {
-    width: 8px;
-    height: 8px;
-    margin-right: 3px;
-}
-
-/* God mode indicator specific styles */
-.god-mode-indicator {
-    padding: 5px 10px;
-    font-size: 14px;
-    font-weight: bold;
-    text-shadow: 0 0 5px rgba(255, 215, 0, 0.7);
-    animation: glow 2s infinite alternate;
-}
-
-@keyframes glow {
-    from { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-    to { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
 }
 
 /* Gold change indicator animation */

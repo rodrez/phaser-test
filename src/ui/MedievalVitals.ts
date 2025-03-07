@@ -1,10 +1,19 @@
-import { Scene } from 'phaser';
+import type { Scene } from 'phaser';
 import { DOMUIHelper } from './DOMUIHelper';
 
+// Define a type for player stats
+interface PlayerStats {
+    health: number;
+    maxHealth: number;
+    xp: number;
+    xpToNextLevel: number;
+    gold: number;
+}
+
 /**
- * MedievalVitals - A medieval-themed HTML/CSS overlay for player vitals
- * This class creates DOM elements for health, XP, gold, and aggression status
- * styled to match the medieval theme from popups.css
+ * MedievalVitals - A simplified medieval-themed HTML/CSS overlay for player vitals
+ * This class creates DOM elements for health, XP, and gold
+ * styled to match a medieval fantasy theme
  */
 export class MedievalVitals {
     private scene: Scene;
@@ -18,20 +27,22 @@ export class MedievalVitals {
     private xpText: HTMLDivElement;
     private goldDisplay: HTMLDivElement;
     private goldText: HTMLDivElement;
-    private aggressionIndicator: HTMLDivElement;
-    private aggressionText: HTMLDivElement;
     private godModeIndicator: HTMLDivElement;
+    private aggressionIndicator: HTMLDivElement;
     
-    private isAggressive: boolean = false;
-    private isGodMode: boolean = false;
+    private isAggressive = false;
+    private isGodMode = false;
     
     constructor(scene: Scene) {
         this.scene = scene;
         this.uiHelper = new DOMUIHelper(scene);
         
-        // Load the CSS file with absolute paths
+        // Load the CSS files
         this.uiHelper.loadCSS('/styles/popups.css');
         this.uiHelper.loadCSS('/styles/medieval-vitals.css');
+        
+        // Add pulse animation for low health
+        this.addPulseAnimation();
         
         // Create the main container
         this.createContainer();
@@ -40,8 +51,8 @@ export class MedievalVitals {
         this.createHealthBar();
         this.createXPBar();
         this.createGoldDisplay();
-        this.createAggressionIndicator();
         this.createGodModeIndicator();
+        this.createAggressionIndicator();
         
         // Add the container to the DOM
         document.body.appendChild(this.container);
@@ -51,520 +62,271 @@ export class MedievalVitals {
     }
     
     /**
+     * Adds a pulse animation for low health
+     */
+    private addPulseAnimation(): void {
+        // Check if the animation already exists
+        if (!document.getElementById('medieval-vitals-animations')) {
+            // Create a style element
+            const style = document.createElement('style');
+            style.id = 'medieval-vitals-animations';
+            
+            // Add the keyframes animation
+            style.textContent = `
+                @keyframes pulse {
+                    0% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                    100% { opacity: 0.7; }
+                }
+                
+                @keyframes glow {
+                    from { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+                    to { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+                }
+                
+                @keyframes goldChange {
+                    0% { transform: translateY(0); opacity: 1; }
+                    100% { transform: translateY(-20px); opacity: 0; }
+                }
+            `;
+            
+            // Add to document head
+            document.head.appendChild(style);
+        }
+    }
+    
+    /**
      * Creates the main container for all vitals elements
      */
     private createContainer(): void {
-        // Determine if we're in ultra-compact mode
-        const isUltraCompact = this.container?.classList.contains('ultra-compact') || false;
-        
         this.container = this.uiHelper.createContainer(
-            isUltraCompact ? 'custom-popup vitals-container ultra-compact' : 'custom-popup vitals-container compact',
+            'custom-popup vitals-container',
             {
                 position: 'fixed',
                 bottom: '10px',
                 left: '10px',
-                width: isUltraCompact ? '180px' : '280px',
-                padding: isUltraCompact ? '5px' : '8px',
-                zIndex: '1000'
+                zIndex: '1000',
+                backgroundColor: '#2a1a0a', // Dark brown background
+                color: '#e8d4b9', // Light parchment text color
+                borderRadius: '8px',
+                border: '3px solid',
+                borderImage: 'linear-gradient(to bottom, #c8a165, #8b5a2b) 1',
+                padding: '10px',
+                maxWidth: '300px',
+                minWidth: '250px',
+                fontFamily: 'Cinzel, "Times New Roman", serif', // Medieval-style font
+                fontWeight: 'bold',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.2)'
             }
         );
-        
-        // Add a title
-        const title = this.uiHelper.createElement<HTMLHeadingElement>(
-            'h3',
-            'compact-title',
-            {
-                marginTop: isUltraCompact ? '0' : '2px',
-                marginBottom: isUltraCompact ? '5px' : '8px',
-                fontSize: isUltraCompact ? '12px' : '16px'
-            },
-            this.container
-        );
-        title.textContent = isUltraCompact ? 'Vitals' : 'Character Vitals';
     }
     
     /**
      * Creates the health bar element
      */
     private createHealthBar(): void {
-        // Determine if we're in ultra-compact mode
-        const isUltraCompact = this.container.classList.contains('ultra-compact');
+        // Create stat row with inline styles for better visibility
+        const statRow = document.createElement('div');
+        statRow.style.display = 'flex';
+        statRow.style.alignItems = 'center';
+        statRow.style.marginBottom = '12px';
+        this.container.appendChild(statRow);
         
-        if (isUltraCompact) {
-            // Create a horizontal layout for ultra-compact mode
-            this.createUltraCompactHealthBar();
-            return;
-        }
-        
-        // Regular compact layout
-        // Create stat row
-        const { row, value: healthValue } = this.uiHelper.createStatRow(
-            'HP',
-            '100/100'
-        );
-        
-        // Add compact styling
-        row.style.marginBottom = '3px';
-        row.style.paddingBottom = '2px';
-        
-        // Store reference to health text
-        this.healthText = healthValue;
-        
-        // Create progress bar
-        const { container, fill } = this.uiHelper.createProgressBar(
-            'progress-bar',
-            'progress-fill health',
-            100,
-            { height: '6px', marginBottom: '6px' }
-        );
-        
-        // Store references
-        this.healthBar = container;
-        this.healthFill = fill;
-        
-        // Add to container
-        this.container.appendChild(row);
-        this.container.appendChild(container);
-    }
-    
-    /**
-     * Creates an ultra-compact health bar with horizontal layout
-     */
-    private createUltraCompactHealthBar(): void {
-        // Create stat container
-        const statContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-container',
-            undefined,
-            this.container
-        );
-        
-        // Create stat info container
-        const statInfo = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-info',
-            undefined,
-            statContainer
-        );
-        
-        // Create label
-        const label = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-label',
-            undefined,
-            statInfo
-        );
+        // Create label with inline styles
+        const label = document.createElement('div');
+        label.style.fontWeight = 'bold';
+        label.style.color = '#f0c070'; // Golden color
+        label.style.width = '30px';
+        label.style.textAlign = 'left';
+        label.style.fontSize = '16px';
+        label.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.7)';
         label.textContent = 'HP';
+        statRow.appendChild(label);
+        
+        // Create progress bar container
+        const progressBar = document.createElement('div');
+        progressBar.style.height = '15px';
+        progressBar.style.marginLeft = '10px';
+        progressBar.style.flexGrow = '1';
+        progressBar.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        progressBar.style.borderRadius = '6px';
+        progressBar.style.overflow = 'hidden';
+        progressBar.style.border = '1px solid rgba(200, 161, 101, 0.5)';
+        statRow.appendChild(progressBar);
+        
+        // Create progress fill
+        const progressFill = document.createElement('div');
+        progressFill.style.width = '70%'; // Start with 70% health
+        progressFill.style.height = '100%';
+        progressFill.style.backgroundColor = '#c0392b'; // Red color for health
+        progressFill.style.boxShadow = 'inset 0 0 5px rgba(255, 255, 255, 0.3)';
+        progressBar.appendChild(progressFill);
         
         // Create health text
-        this.healthText = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-value',
-            undefined,
-            statInfo
-        );
-        this.healthText.textContent = '100/100';
-        
-        // Create progress container
-        const progressContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'progress-container',
-            undefined,
-            statContainer
-        );
-        
-        // Create progress bar
-        const { container, fill } = this.uiHelper.createProgressBar(
-            'progress-bar',
-            'progress-fill health',
-            100,
-            { height: '4px', marginBottom: '0' }
-        );
+        const healthText = document.createElement('div');
+        healthText.style.color = '#e8d4b9';
+        healthText.style.marginLeft = '10px';
+        healthText.style.fontSize = '14px';
+        healthText.style.fontWeight = 'bold';
+        healthText.textContent = '70/100';
+        statRow.appendChild(healthText);
         
         // Store references
-        this.healthBar = container;
-        this.healthFill = fill;
-        
-        // Add to progress container
-        progressContainer.appendChild(container);
+        this.healthBar = progressBar;
+        this.healthFill = progressFill;
+        this.healthText = healthText;
     }
     
     /**
      * Creates the XP bar element
      */
     private createXPBar(): void {
-        // Determine if we're in ultra-compact mode
-        const isUltraCompact = this.container.classList.contains('ultra-compact');
+        // Create stat row with inline styles for better visibility
+        const statRow = document.createElement('div');
+        statRow.style.display = 'flex';
+        statRow.style.alignItems = 'center';
+        statRow.style.marginBottom = '12px';
+        this.container.appendChild(statRow);
         
-        if (isUltraCompact) {
-            // Create a horizontal layout for ultra-compact mode
-            this.createUltraCompactXPBar();
-            return;
-        }
-        
-        // Regular compact layout
-        // Create stat row
-        const { row, value: xpValue } = this.uiHelper.createStatRow(
-            'XP',
-            '0/100'
-        );
-        
-        // Add compact styling
-        row.style.marginTop = '4px';
-        row.style.marginBottom = '3px';
-        row.style.paddingBottom = '2px';
-        
-        // Store reference to XP text
-        this.xpText = xpValue;
-        
-        // Create progress bar
-        const { container, fill } = this.uiHelper.createProgressBar(
-            'progress-bar',
-            'progress-fill',
-            0,
-            { height: '6px', marginBottom: '6px' }
-        );
-        
-        // Set XP color
-        fill.style.backgroundColor = '#706fd3'; // Purple color for XP
-        
-        // Store references
-        this.xpBar = container;
-        this.xpFill = fill;
-        
-        // Add to container
-        this.container.appendChild(row);
-        this.container.appendChild(container);
-    }
-    
-    /**
-     * Creates an ultra-compact XP bar with horizontal layout
-     */
-    private createUltraCompactXPBar(): void {
-        // Create stat container
-        const statContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-container',
-            undefined,
-            this.container
-        );
-        
-        // Create stat info container
-        const statInfo = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-info',
-            undefined,
-            statContainer
-        );
-        
-        // Create label
-        const label = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-label',
-            undefined,
-            statInfo
-        );
+        // Create label with inline styles
+        const label = document.createElement('div');
+        label.style.fontWeight = 'bold';
+        label.style.color = '#f0c070'; // Golden color
+        label.style.width = '30px';
+        label.style.textAlign = 'left';
+        label.style.fontSize = '16px';
+        label.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.7)';
         label.textContent = 'XP';
+        statRow.appendChild(label);
+        
+        // Create progress bar container
+        const progressBar = document.createElement('div');
+        progressBar.style.height = '15px';
+        progressBar.style.marginLeft = '10px';
+        progressBar.style.flexGrow = '1';
+        progressBar.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        progressBar.style.borderRadius = '6px';
+        progressBar.style.overflow = 'hidden';
+        progressBar.style.border = '1px solid rgba(200, 161, 101, 0.5)';
+        statRow.appendChild(progressBar);
+        
+        // Create progress fill
+        const progressFill = document.createElement('div');
+        progressFill.style.width = '50%'; // Start with 50% XP
+        progressFill.style.height = '100%';
+        progressFill.style.backgroundColor = '#3498db'; // Blue color for XP
+        progressFill.style.boxShadow = 'inset 0 0 5px rgba(255, 255, 255, 0.3)';
+        progressBar.appendChild(progressFill);
         
         // Create XP text
-        this.xpText = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-value',
-            undefined,
-            statInfo
-        );
-        this.xpText.textContent = '0/100';
-        
-        // Create progress container
-        const progressContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'progress-container',
-            undefined,
-            statContainer
-        );
-        
-        // Create progress bar
-        const { container, fill } = this.uiHelper.createProgressBar(
-            'progress-bar',
-            'progress-fill',
-            0,
-            { height: '4px', marginBottom: '0' }
-        );
-        
-        // Set XP color
-        fill.style.backgroundColor = '#706fd3'; // Purple color for XP
+        const xpText = document.createElement('div');
+        xpText.style.color = '#e8d4b9';
+        xpText.style.marginLeft = '10px';
+        xpText.style.fontSize = '14px';
+        xpText.style.fontWeight = 'bold';
+        xpText.textContent = '50/100';
+        statRow.appendChild(xpText);
         
         // Store references
-        this.xpBar = container;
-        this.xpFill = fill;
-        
-        // Add to progress container
-        progressContainer.appendChild(container);
+        this.xpBar = progressBar;
+        this.xpFill = progressFill;
+        this.xpText = xpText;
     }
     
     /**
      * Creates the gold display element
      */
     private createGoldDisplay(): void {
-        // Determine if we're in ultra-compact mode
-        const isUltraCompact = this.container.classList.contains('ultra-compact');
-        
-        if (isUltraCompact) {
-            // Create a simplified gold display for ultra-compact mode
-            this.createUltraCompactGoldDisplay();
-            return;
-        }
-        
-        // Regular compact layout
-        // Create stat row
-        const { row, value: goldValue } = this.uiHelper.createStatRow(
-            'Gold',
-            '0'
-        );
-        
-        // Add compact styling
-        row.style.marginTop = '4px';
-        row.style.marginBottom = '3px';
-        row.style.paddingBottom = '2px';
-        
-        // Replace the default label with a custom gold display
-        const goldLabel = row.firstChild as HTMLElement;
-        if (goldLabel) {
-            // Remove the default label
-            row.removeChild(goldLabel);
-            
-            // Create a custom gold display container
-            const goldDisplay = this.uiHelper.createElement<HTMLDivElement>(
-                'div',
-                'gold-display',
-                undefined,
-                row
-            );
-            
-            // Insert it at the beginning of the row
-            row.insertBefore(goldDisplay, row.firstChild);
-            
-            // Create gold icon
-            const goldIcon = this.uiHelper.createElement<HTMLDivElement>(
-                'div',
-                'gold-icon',
-                undefined,
-                goldDisplay
-            );
-            
-            // Create gold label
-            const goldText = this.uiHelper.createElement<HTMLDivElement>(
-                'div',
-                'stat-label',
-                undefined,
-                goldDisplay
-            );
-            
-            // Set text based on whether the container has the compact class
-            const isCompact = this.container.classList.contains('compact');
-            goldText.textContent = isCompact ? '' : 'Gold';
-        }
-        
-        // Style the gold value
-        goldValue.className = 'gold-value';
-        
-        // Store references
-        this.goldDisplay = row;
-        this.goldText = goldValue;
-        
-        // Add to container
-        this.container.appendChild(row);
-    }
-    
-    /**
-     * Creates an ultra-compact gold display
-     */
-    private createUltraCompactGoldDisplay(): void {
-        // Create stat container
-        const statContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-container',
-            undefined,
-            this.container
-        );
-        
-        // Create gold display
-        const goldDisplay = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'gold-display',
-            {
-                display: 'flex',
-                alignItems: 'center',
-                marginRight: '5px'
-            },
-            statContainer
-        );
+        // Create gold display container
+        const goldDisplay = document.createElement('div');
+        goldDisplay.style.display = 'flex';
+        goldDisplay.style.alignItems = 'center';
+        goldDisplay.style.marginTop = '5px';
+        goldDisplay.style.position = 'relative'; // For positioning gold change indicators
+        this.container.appendChild(goldDisplay);
         
         // Create gold icon
-        const goldIcon = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'gold-icon',
-            undefined,
-            goldDisplay
-        );
+        const goldIcon = document.createElement('div');
+        goldIcon.style.display = 'inline-block';
+        goldIcon.style.width = '20px';
+        goldIcon.style.height = '20px';
+        goldIcon.style.background = 'radial-gradient(circle at 30% 30%, #ffd700, #b8860b)';
+        goldIcon.style.borderRadius = '50%';
+        goldIcon.style.marginRight = '10px';
+        goldIcon.style.border = '1px solid #8b5a2b';
+        goldIcon.style.boxShadow = 'inset 0 0 3px rgba(255, 255, 255, 0.8), 0 0 5px rgba(255, 215, 0, 0.5)';
+        goldDisplay.appendChild(goldIcon);
         
-        // Create gold value
-        this.goldText = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'gold-value',
-            {
-                marginLeft: '3px'
-            },
-            statContainer
-        );
-        this.goldText.textContent = '0';
+        // Create gold text
+        const goldText = document.createElement('div');
+        goldText.style.color = '#ffd700'; // Gold color
+        goldText.style.fontSize = '16px';
+        goldText.style.fontWeight = 'bold';
+        goldText.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.7)';
+        goldText.textContent = '1,250';
+        goldDisplay.appendChild(goldText);
         
-        // Store reference to the container
-        this.goldDisplay = statContainer;
+        // Store references
+        this.goldDisplay = goldDisplay;
+        this.goldText = goldText;
     }
     
     /**
-     * Creates the aggression indicator element
-     */
-    private createAggressionIndicator(): void {
-        // Determine if we're in ultra-compact mode
-        const isUltraCompact = this.container.classList.contains('ultra-compact');
-        
-        if (isUltraCompact) {
-            // Create a simplified aggression indicator for ultra-compact mode
-            this.createUltraCompactAggressionIndicator();
-            return;
-        }
-        
-        // Regular compact layout
-        // Create stat row
-        const { row, value } = this.uiHelper.createStatRow(
-            'Mode',
-            ''
-        );
-        
-        // Add compact styling
-        row.style.marginTop = '4px';
-        row.style.marginBottom = '0';
-        
-        // Create indicator container
-        const indicatorContainer = this.uiHelper.createContainer('', {
-            display: 'flex',
-            alignItems: 'center'
-        });
-        
-        // Create circle indicator
-        this.aggressionIndicator = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'combat-indicator-circle',
-            {
-                backgroundColor: '#27ae60' // Green for passive
-            },
-            indicatorContainer
-        );
-        
-        // Create text indicator
-        this.aggressionText = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-value compact',
-            {
-                fontSize: '12px',
-                marginLeft: '4px'
-            },
-            indicatorContainer
-        );
-        this.aggressionText.textContent = 'Passive';
-        
-        // Replace the empty value with our indicator
-        value.replaceWith(indicatorContainer);
-        
-        // Add to container
-        this.container.appendChild(row);
-    }
-    
-    /**
-     * Creates an ultra-compact aggression indicator
-     */
-    private createUltraCompactAggressionIndicator(): void {
-        // Create stat container
-        const statContainer = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-container',
-            {
-                marginTop: '2px'
-            },
-            this.container
-        );
-        
-        // Create label
-        const label = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-label',
-            {
-                marginRight: '5px'
-            },
-            statContainer
-        );
-        label.textContent = 'Mode';
-        
-        // Create indicator container
-        const indicatorContainer = this.uiHelper.createContainer('', {
-            display: 'flex',
-            alignItems: 'center'
-        });
-        
-        // Create circle indicator
-        this.aggressionIndicator = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'combat-indicator-circle',
-            {
-                backgroundColor: '#27ae60' // Green for passive
-            },
-            indicatorContainer
-        );
-        
-        // Create text indicator
-        this.aggressionText = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'stat-value',
-            {
-                fontSize: '10px',
-                marginLeft: '3px'
-            },
-            indicatorContainer
-        );
-        this.aggressionText.textContent = 'Passive';
-        
-        // Add to container
-        statContainer.appendChild(indicatorContainer);
-    }
-    
-    /**
-     * Creates the god mode indicator element
+     * Creates the god mode indicator
      */
     private createGodModeIndicator(): void {
-        this.godModeIndicator = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            'action-btn god-mode-indicator',
-            {
-                position: 'fixed',
-                top: '10px',
-                right: '10px',
-                backgroundColor: '#f0c070', // Gold color
-                display: 'none' // Hidden by default
-            }
-        );
-        this.godModeIndicator.textContent = 'GOD MODE';
+        // Create god mode indicator
+        const godModeIndicator = document.createElement('div');
+        godModeIndicator.style.position = 'fixed';
+        godModeIndicator.style.top = '10px';
+        godModeIndicator.style.right = '10px';
+        godModeIndicator.style.padding = '5px 10px';
+        godModeIndicator.style.backgroundColor = '#2a1a0a';
+        godModeIndicator.style.color = '#f0c070';
+        godModeIndicator.style.borderRadius = '4px';
+        godModeIndicator.style.fontFamily = 'Cinzel, "Times New Roman", serif';
+        godModeIndicator.style.fontWeight = 'bold';
+        godModeIndicator.style.fontSize = '14px';
+        godModeIndicator.style.border = '2px solid #f0c070';
+        godModeIndicator.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.5)';
+        godModeIndicator.style.display = 'none'; // Hidden by default
+        godModeIndicator.style.animation = 'glow 2s infinite alternate';
+        godModeIndicator.style.zIndex = '1000';
+        godModeIndicator.textContent = 'GOD MODE';
         
-        document.body.appendChild(this.godModeIndicator);
+        // Add to document body
+        document.body.appendChild(godModeIndicator);
+        
+        // Store reference
+        this.godModeIndicator = godModeIndicator;
     }
     
     /**
-     * Updates all UI elements based on player stats
+     * Creates the aggression indicator
+     */
+    private createAggressionIndicator(): void {
+        // Create aggression indicator (just a circle)
+        const circle = document.createElement('div');
+        circle.style.width = '12px';
+        circle.style.height = '12px';
+        circle.style.borderRadius = '50%';
+        circle.style.backgroundColor = '#27ae60'; // Green for passive
+        circle.style.position = 'absolute';
+        circle.style.bottom = '10px';
+        circle.style.right = '10px';
+        circle.style.boxShadow = '0 0 5px rgba(0, 0, 0, 0.5)';
+        this.container.appendChild(circle);
+        
+        // Store reference to the indicator
+        this.aggressionIndicator = circle;
+    }
+    
+    /**
+     * Updates the UI with current player stats
      */
     public updateUI(): void {
         // Get player stats from the scene
-        const playerStats = (this.scene as any).playerStats;
+        const playerStats = (this.scene as unknown as { playerStats?: PlayerStats }).playerStats;
         if (!playerStats) return;
         
         this.updateHealthBar(playerStats.health, playerStats.maxHealth);
@@ -579,21 +341,19 @@ export class MedievalVitals {
         const healthPercent = Math.max(0, health / maxHealth);
         
         // Update fill width
-        this.uiHelper.updateProgressBar(this.healthFill, healthPercent * 100);
+        this.healthFill.style.width = `${healthPercent * 100}%`;
         
         // Update text
         this.healthText.textContent = `${health}/${maxHealth}`;
         
         // Change color based on health percentage
-        if (healthPercent > 0.6) {
-            this.healthFill.style.backgroundColor = '#27ae60'; // Green
-            this.healthFill.className = 'progress-fill health';
-        } else if (healthPercent > 0.3) {
-            this.healthFill.style.backgroundColor = '#f39c12'; // Yellow/Orange
-            this.healthFill.className = 'progress-fill health';
+        if (healthPercent <= 0.3) {
+            this.healthFill.style.backgroundColor = '#c0392b'; // Red color
+            // Add pulsing animation for low health
+            this.healthFill.style.animation = 'pulse 1.5s infinite';
         } else {
-            this.healthFill.style.backgroundColor = '#c0392b'; // Red
-            this.healthFill.className = 'progress-fill danger';
+            this.healthFill.style.backgroundColor = '#c0392b'; // Red color
+            this.healthFill.style.animation = 'none';
         }
     }
     
@@ -604,10 +364,21 @@ export class MedievalVitals {
         const xpPercent = Math.min(1, xp / xpToNextLevel);
         
         // Update fill width
-        this.uiHelper.updateProgressBar(this.xpFill, xpPercent * 100);
+        this.xpFill.style.width = `${xpPercent * 100}%`;
         
         // Update text
         this.xpText.textContent = `${xp}/${xpToNextLevel}`;
+        
+        // Ensure XP bar stays blue
+        this.xpFill.style.backgroundColor = '#3498db';
+    }
+    
+    /**
+     * Updates the gold display
+     */
+    public updateGoldDisplay(gold: number): void {
+        // Format the gold with commas
+        this.goldText.textContent = gold.toLocaleString();
     }
     
     /**
@@ -615,7 +386,7 @@ export class MedievalVitals {
      * @param gold New gold amount
      * @param animate Whether to animate the change
      */
-    public updateGoldWithAnimation(gold: number, animate: boolean = true): void {
+    public updateGoldWithAnimation(gold: number, animate = true): void {
         if (!animate) {
             // Simple update without animation
             this.updateGoldDisplay(gold);
@@ -623,7 +394,8 @@ export class MedievalVitals {
         }
         
         // Get current gold amount
-        const currentGold = parseInt(this.goldText.textContent || '0');
+        const currentText = this.goldText.textContent || '0';
+        const currentGold = Number.parseInt(currentText.replace(/,/g, ''), 10);
         
         // Calculate difference
         const diff = gold - currentGold;
@@ -631,62 +403,25 @@ export class MedievalVitals {
         if (diff === 0) return;
         
         // Create a floating indicator for the gold change
-        const indicator = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            `gold-change-indicator ${diff > 0 ? 'positive' : 'negative'}`,
-            undefined,
-            this.goldDisplay
-        );
-        
-        // Set the indicator text
+        const indicator = document.createElement('div');
+        indicator.style.position = 'absolute';
+        indicator.style.right = '0';
+        indicator.style.top = '0';
+        indicator.style.color = diff > 0 ? '#27ae60' : '#c0392b';
+        indicator.style.fontWeight = 'bold';
+        indicator.style.animation = 'goldChange 1s forwards';
         indicator.textContent = diff > 0 ? `+${diff}` : `${diff}`;
+        this.goldDisplay.appendChild(indicator);
         
-        // Add the changing class to the gold value for pulse animation
-        this.goldText.classList.add('changing');
+        // Update gold value
+        this.updateGoldDisplay(gold);
         
-        // Update gold icon to show pile for large amounts
-        const goldIcon = this.goldDisplay.querySelector('.gold-icon');
-        if (goldIcon && gold >= 1000) {
-            goldIcon.classList.add('pile');
-        } else if (goldIcon) {
-            goldIcon.classList.remove('pile');
-        }
-        
-        // Animate the gold value change
-        let current = currentGold;
-        const step = Math.ceil(Math.abs(diff) / 20); // Divide the change into steps
-        const interval = setInterval(() => {
-            if (diff > 0) {
-                current = Math.min(current + step, gold);
-            } else {
-                current = Math.max(current - step, gold);
-            }
-            
-            this.goldText.textContent = current.toString();
-            
-            if (current === gold) {
-                clearInterval(interval);
-                
-                // Remove the changing class after animation
-                setTimeout(() => {
-                    this.goldText.classList.remove('changing');
-                }, 500);
-            }
-        }, 50);
-        
-        // Remove the indicator after animation (it will animate out via CSS)
+        // Remove the indicator after animation
         setTimeout(() => {
             if (indicator.parentNode) {
                 indicator.parentNode.removeChild(indicator);
             }
         }, 1000);
-    }
-    
-    /**
-     * Updates the gold display
-     */
-    public updateGoldDisplay(gold: number): void {
-        this.goldText.textContent = gold.toString();
     }
     
     /**
@@ -698,6 +433,7 @@ export class MedievalVitals {
     
     /**
      * Sets the aggression state
+     * @param isAggressive Whether the player is aggressive
      */
     public setAggression(isAggressive: boolean): void {
         this.isAggressive = isAggressive;
@@ -705,56 +441,68 @@ export class MedievalVitals {
     }
     
     /**
-     * Updates the aggression indicator display
+     * Updates the aggression indicator
      */
     private updateAggressionIndicator(): void {
+        if (!this.aggressionIndicator) return;
+        
         if (this.isAggressive) {
             this.aggressionIndicator.style.backgroundColor = '#c0392b'; // Red for aggressive
-            this.aggressionText.textContent = 'Aggressive';
         } else {
             this.aggressionIndicator.style.backgroundColor = '#27ae60'; // Green for passive
-            this.aggressionText.textContent = 'Passive';
         }
     }
     
     /**
      * Sets the god mode state
+     * @param enabled Whether god mode is enabled
      */
     public setGodMode(enabled: boolean): void {
         this.isGodMode = enabled;
-        this.godModeIndicator.style.display = enabled ? 'block' : 'none';
+        
+        if (this.godModeIndicator) {
+            this.godModeIndicator.style.display = enabled ? 'block' : 'none';
+        }
     }
     
     /**
      * Shows a message notification
+     * @param message The message to display
+     * @param type The type of message (info, success, warning, error)
+     * @param duration How long to show the message in milliseconds
      */
-    public showMessage(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', duration: number = 3000): void {
+    public showMessage(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', duration = 3000): void {
         // Create message container
-        const messageContainer = this.uiHelper.createContainer('custom-popup message-popup', {
-            position: 'fixed',
-            bottom: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '10px 20px',
-            zIndex: '1001',
-            textAlign: 'center'
-        });
+        const messageContainer = document.createElement('div');
+        messageContainer.style.position = 'fixed';
+        messageContainer.style.bottom = '20px';
+        messageContainer.style.left = '50%';
+        messageContainer.style.transform = 'translateX(-50%)';
+        messageContainer.style.padding = '10px 20px';
+        messageContainer.style.zIndex = '1001';
+        messageContainer.style.textAlign = 'center';
+        messageContainer.style.backgroundColor = '#2a1a0a';
+        messageContainer.style.color = '#e8d4b9';
+        messageContainer.style.borderRadius = '8px';
+        messageContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.2)';
+        messageContainer.style.fontFamily = 'Cinzel, "Times New Roman", serif';
         
         // Set color based on message type
+        let borderColor = '#3498db'; // Default blue for info
+        
         switch (type) {
             case 'success':
-                messageContainer.style.borderColor = '#27ae60';
+                borderColor = '#27ae60'; // Green
                 break;
             case 'warning':
-                messageContainer.style.borderColor = '#f39c12';
+                borderColor = '#f39c12'; // Orange
                 break;
             case 'error':
-                messageContainer.style.borderColor = '#c0392b';
-                break;
-            default: // info
-                messageContainer.style.borderColor = '#3498db';
+                borderColor = '#c0392b'; // Red
                 break;
         }
+        
+        messageContainer.style.border = `3px solid ${borderColor}`;
         
         // Set message text
         messageContainer.textContent = message;
@@ -764,51 +512,65 @@ export class MedievalVitals {
         
         // Remove after duration
         setTimeout(() => {
-            document.body.removeChild(messageContainer);
+            if (messageContainer.parentNode) {
+                messageContainer.parentNode.removeChild(messageContainer);
+            }
         }, duration);
     }
     
     /**
      * Shows a level up notification
+     * @param level The new level
      */
     public showLevelUpNotification(level: number): void {
         // Create level up container
-        const levelUpContainer = this.uiHelper.createContainer('custom-popup level-up-notification', {
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            padding: '20px',
-            zIndex: '1002',
-            textAlign: 'center'
-        });
+        const levelUpContainer = document.createElement('div');
+        levelUpContainer.style.position = 'fixed';
+        levelUpContainer.style.top = '50%';
+        levelUpContainer.style.left = '50%';
+        levelUpContainer.style.transform = 'translate(-50%, -50%)';
+        levelUpContainer.style.padding = '20px';
+        levelUpContainer.style.zIndex = '1002';
+        levelUpContainer.style.textAlign = 'center';
+        levelUpContainer.style.backgroundColor = '#2a1a0a';
+        levelUpContainer.style.color = '#e8d4b9';
+        levelUpContainer.style.borderRadius = '8px';
+        levelUpContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.2)';
+        levelUpContainer.style.fontFamily = 'Cinzel, "Times New Roman", serif';
+        levelUpContainer.style.border = '3px solid #f0c070';
+        levelUpContainer.style.minWidth = '300px';
         
         // Add title
-        const title = this.uiHelper.createElement<HTMLHeadingElement>(
-            'h3',
-            '',
-            undefined,
-            levelUpContainer
-        );
+        const title = document.createElement('h3');
+        title.style.margin = '0 0 15px 0';
+        title.style.color = '#f0c070';
+        title.style.fontSize = '24px';
+        title.style.textShadow = '1px 1px 2px rgba(0, 0, 0, 0.7)';
         title.textContent = 'Level Up!';
+        levelUpContainer.appendChild(title);
         
         // Add message
-        const message = this.uiHelper.createElement<HTMLDivElement>(
-            'div',
-            '',
-            { marginBottom: '15px' },
-            levelUpContainer
-        );
+        const message = document.createElement('div');
+        message.style.marginBottom = '15px';
+        message.style.fontSize = '16px';
         message.textContent = `You have reached level ${level}!`;
+        levelUpContainer.appendChild(message);
         
         // Add close button
-        const closeButton = this.uiHelper.createButton(
-            'Continue',
-            'action-btn',
-            () => {
-                document.body.removeChild(levelUpContainer);
-            }
-        );
+        const closeButton = document.createElement('button');
+        closeButton.style.backgroundColor = '#8b5a2b';
+        closeButton.style.color = '#e8d4b9';
+        closeButton.style.border = '2px solid #c8a165';
+        closeButton.style.borderRadius = '4px';
+        closeButton.style.padding = '8px 16px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.fontFamily = 'Cinzel, "Times New Roman", serif';
+        closeButton.style.fontSize = '14px';
+        closeButton.style.fontWeight = 'bold';
+        closeButton.textContent = 'Continue';
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(levelUpContainer);
+        });
         levelUpContainer.appendChild(closeButton);
         
         // Add to DOM
@@ -816,15 +578,21 @@ export class MedievalVitals {
     }
     
     /**
-     * Destroys the vitals UI
+     * Destroys the UI elements
      */
     public destroy(): void {
-        if (this.container && this.container.parentNode) {
+        if (this.container?.parentNode) {
             this.container.parentNode.removeChild(this.container);
         }
         
-        if (this.godModeIndicator && this.godModeIndicator.parentNode) {
+        if (this.godModeIndicator?.parentNode) {
             this.godModeIndicator.parentNode.removeChild(this.godModeIndicator);
+        }
+        
+        // Remove any animations we added
+        const animationStyle = document.getElementById('medieval-vitals-animations');
+        if (animationStyle?.parentNode) {
+            animationStyle.parentNode.removeChild(animationStyle);
         }
     }
 } 

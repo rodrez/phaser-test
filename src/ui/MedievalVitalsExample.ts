@@ -8,16 +8,16 @@ export class MedievalVitalsExample extends Scene {
     private vitalsUI!: MedievalVitalsIntegration;
     private player!: Phaser.Physics.Arcade.Sprite;
     private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-    private playerStats: any = {
+    private playerStats = {
         health: 100,
         maxHealth: 100,
         xp: 0,
         xpToNextLevel: 100,
-        gold: 0,
+        gold: 1_000_000,
         level: 1
     };
-    private isAggressive: boolean = false;
-    private godMode: boolean = false;
+    private isAggressive = false;
+    private godMode = false;
     private buttonContainer: HTMLDivElement | null = null;
     
     constructor() {
@@ -106,7 +106,7 @@ export class MedievalVitalsExample extends Scene {
         goldButton.className = 'action-btn';
         goldButton.textContent = 'Gain Gold';
         goldButton.style.backgroundColor = '#f0c070';
-        goldButton.onclick = () => this.gainGold(50);
+        goldButton.onclick = () => this.gainGold(Math.floor(Math.random() * 1000));
         buttonContainer.appendChild(goldButton);
         
         // Toggle Aggression button

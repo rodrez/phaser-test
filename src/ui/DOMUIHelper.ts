@@ -1,4 +1,4 @@
-import { Scene } from 'phaser';
+import type { Scene } from 'phaser';
 
 /**
  * DOMUIHelper - Utility class to help integrate HTML/CSS UI with Phaser
@@ -164,8 +164,8 @@ export class DOMUIHelper {
     public createStatRow(
         label: string,
         value: string,
-        labelClass: string = 'stat-label',
-        valueClass: string = 'stat-value'
+        labelClass = 'stat-label',
+        valueClass= 'stat-value'
     ): { row: HTMLDivElement; label: HTMLDivElement; value: HTMLDivElement } {
         const row = this.createElement<HTMLDivElement>('div', 'stat-row');
         
@@ -194,12 +194,12 @@ export class DOMUIHelper {
     public cleanupCSS(): void {
         const links = document.querySelectorAll('link[rel="stylesheet"]');
         
-        links.forEach(link => {
+        for (const link of links) {
             const href = link.getAttribute('href');
             if (href && this.cssFiles.includes(href)) {
                 link.parentNode?.removeChild(link);
             }
-        });
+        }
         
         this.cssFiles = [];
     }

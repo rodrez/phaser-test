@@ -8,8 +8,10 @@ import { InventoryScene } from './scenes/InventoryScene';
 import { CharacterScene } from './scenes/CharacterScene';
 import { EquipmentDemoScene } from './scenes/EquipmentDemo';
 import { MedievalVitalsExample } from './ui/MedievalVitalsExample';
+import { InventoryDemoScene } from './systems/inventory/InventoryDemo';
 
-import { Game, Types } from "phaser";
+import { Game } from "phaser";
+import type { Types } from "phaser";
 
 //  Find out more information about the Game Config at:
 //  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
@@ -33,7 +35,8 @@ const config: Types.Core.GameConfig = {
         InventoryScene,
         CharacterScene,
         EquipmentDemoScene,
-        MedievalVitalsExample
+        MedievalVitalsExample,
+        InventoryDemoScene
     ],
     physics: {
         default: 'arcade',

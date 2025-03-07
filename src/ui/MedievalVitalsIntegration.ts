@@ -1,15 +1,16 @@
 import { Scene } from 'phaser';
 import { MedievalVitals } from './MedievalVitals';
+import { Game } from '../scenes/Game';
 
 /**
- * MedievalVitalsIntegration - A helper class to integrate the medieval vitals UI with a Phaser game scene
- * This class handles the creation, updating, and destruction of the vitals UI
+ * MedievalVitalsIntegration - Integrates the MedievalVitals UI with the main game
+ * This class serves as a bridge between the Game scene and the MedievalVitals UI
  */
 export class MedievalVitalsIntegration {
     private scene: Scene;
     private vitals: MedievalVitals | null = null;
-    private updateCallback: Function | null = null;
-    private isCompact: boolean = false;
+    private updateInterval: number = 100; // Update interval in ms
+    private updateTimer: number = 0;
     
     constructor(scene: Scene) {
         this.scene = scene;
@@ -17,71 +18,88 @@ export class MedievalVitalsIntegration {
     
     /**
      * Initializes the medieval vitals UI
-     * @param mode Display mode: 'normal', 'compact', or 'ultra-compact'
      */
-    public initialize(mode: 'normal' | 'compact' | 'ultra-compact' = 'compact'): void {
-        // Create the vitals UI
+    public initialize(): void {
+        // Create the medieval vitals UI
         this.vitals = new MedievalVitals(this.scene);
-        this.isCompact = mode !== 'normal';
         
-        // Set display mode
-        if (mode === 'ultra-compact') {
-            this.setUltraCompactMode(true);
-        } else if (mode === 'compact') {
-            this.setCompactMode(true);
-        }
+        // Initial update
+        this.updateUI();
         
-        // Set up update callback
-        this.updateCallback = () => {
-            if (this.vitals) {
-                this.vitals.updateUI();
-            }
-        };
-        
-        // Add update callback to scene
-        this.scene.events.on('update', this.updateCallback);
-        
-        // Listen for player events
+        // Set up event listeners for the game
         this.setupEventListeners();
     }
     
     /**
-     * Sets up event listeners for player events
+     * Sets up event listeners for the game
      */
     private setupEventListeners(): void {
-        if (!this.vitals) return;
+        // Listen for relevant game events
+        const gameScene = this.scene as Game;
         
-        // Listen for aggression toggle
-        this.scene.events.on('player-aggression-changed', (isAggressive: boolean) => {
-            if (this.vitals) {
-                this.vitals.setAggression(isAggressive);
-            }
-        });
+        // Update UI when player stats change
+        this.scene.events.on('player-stats-updated', this.updateUI, this);
         
-        // Listen for god mode toggle
-        this.scene.events.on('god-mode-changed', (enabled: boolean) => {
-            if (this.vitals) {
-                this.vitals.setGodMode(enabled);
-            }
-        });
+        // Update UI when health changes
+        this.scene.events.on('player-health-changed', this.updateUI, this);
         
-        // Listen for level up
-        this.scene.events.on('player-level-up', (level: number) => {
-            if (this.vitals) {
-                this.vitals.showLevelUpNotification(level);
-            }
-        });
+        // Update UI when XP changes
+        this.scene.events.on('player-xp-changed', this.updateUI, this);
         
-        // Listen for messages
-        this.scene.events.on('show-message', (message: string, type: 'info' | 'success' | 'warning' | 'error', duration: number) => {
-            if (this.vitals) {
-                this.vitals.showMessage(message, type, duration);
-            }
-        });
+        // Update UI when gold changes
+        this.scene.events.on('player-gold-changed', this.updateGold, this);
+        
+        // Update UI when aggression changes
+        this.scene.events.on('player-aggression-changed', this.updateAggression, this);
+        
+        // Update UI when god mode changes
+        this.scene.events.on('player-god-mode-changed', this.updateGodMode, this);
+        
+        // Clean up when scene is shut down
+        this.scene.events.once('shutdown', this.destroy, this);
     }
     
     /**
-     * Shows a message in the UI
+     * Updates the UI with current player stats
+     */
+    public updateUI(): void {
+        if (!this.vitals) return;
+        
+        const gameScene = this.scene as Game;
+        if (!gameScene.playerStats) return;
+        
+        // Update health
+        this.vitals.updateHealthBar(gameScene.playerStats.health, gameScene.playerStats.maxHealth);
+        
+        // Update XP
+        this.vitals.updateXPBar(gameScene.playerStats.xp, gameScene.playerStats.xpToNextLevel);
+        
+        // Update gold
+        this.vitals.updateGoldDisplay(gameScene.playerStats.gold);
+        
+        // Update aggression
+        this.vitals.setAggression(gameScene.playerStats.isAggressive);
+        
+        // Update god mode
+        this.vitals.setGodMode(gameScene.playerStats.godMode);
+    }
+    
+    /**
+     * Updates the UI during the game loop
+     * @param time Current time
+     * @param delta Time since last update
+     */
+    public update(time: number, delta: number): void {
+        // Update the UI periodically
+        this.updateTimer += delta;
+        if (this.updateTimer >= this.updateInterval) {
+            this.updateTimer = 0;
+            this.updateUI();
+        }
+    }
+    
+    /**
+     * Shows a message
      * @param message The message to show
      * @param type The type of message (info, success, warning, error)
      * @param duration The duration to show the message (in ms)
@@ -97,6 +115,8 @@ export class MedievalVitalsIntegration {
      */
     public toggleAggression(): void {
         if (this.vitals) {
+            const gameScene = this.scene as Game;
+            gameScene.toggleAggression();
             this.vitals.toggleAggression();
         }
     }
@@ -112,12 +132,36 @@ export class MedievalVitalsIntegration {
     }
     
     /**
+     * Updates the aggression state based on the game
+     */
+    private updateAggression(): void {
+        if (!this.vitals) return;
+        
+        const gameScene = this.scene as Game;
+        if (gameScene.playerStats) {
+            this.vitals.setAggression(gameScene.playerStats.isAggressive);
+        }
+    }
+    
+    /**
      * Sets the god mode state
      * @param enabled Whether god mode is enabled
      */
     public setGodMode(enabled: boolean): void {
         if (this.vitals) {
             this.vitals.setGodMode(enabled);
+        }
+    }
+    
+    /**
+     * Updates the god mode state based on the game
+     */
+    private updateGodMode(): void {
+        if (!this.vitals) return;
+        
+        const gameScene = this.scene as Game;
+        if (gameScene.playerStats) {
+            this.vitals.setGodMode(gameScene.playerStats.godMode);
         }
     }
     
@@ -132,156 +176,7 @@ export class MedievalVitalsIntegration {
     }
     
     /**
-     * Toggles between normal, compact, and ultra-compact UI modes
-     * @returns The new mode
-     */
-    public cycleDisplayMode(): 'normal' | 'compact' | 'ultra-compact' {
-        // Get the container element
-        const container = document.querySelector('.vitals-container');
-        if (!container) {
-            console.warn('Vitals container not found');
-            return 'compact';
-        }
-        
-        // Determine current mode
-        const isCompact = container.classList.contains('compact');
-        const isUltraCompact = container.classList.contains('ultra-compact');
-        
-        // Cycle through modes
-        if (!isCompact && !isUltraCompact) {
-            // Normal -> Compact
-            this.setCompactMode(true);
-            return 'compact';
-        } else if (isCompact && !isUltraCompact) {
-            // Compact -> Ultra-compact
-            this.setUltraCompactMode(true);
-            return 'ultra-compact';
-        } else {
-            // Ultra-compact -> Normal
-            this.setUltraCompactMode(false);
-            this.setCompactMode(false);
-            return 'normal';
-        }
-    }
-    
-    /**
-     * Sets the ultra-compact mode
-     * @param ultraCompact Whether to use ultra-compact mode
-     */
-    public setUltraCompactMode(ultraCompact: boolean): void {
-        // Get the container element
-        const container = document.querySelector('.vitals-container');
-        if (!container) {
-            console.warn('Vitals container not found');
-            return;
-        }
-        
-        // Set the ultra-compact class
-        if (ultraCompact) {
-            container.classList.add('ultra-compact');
-            container.classList.add('compact'); // Ultra-compact includes compact
-            container.setAttribute('style', 'width: 180px; padding: 5px; bottom: 10px; left: 10px; position: fixed; z-index: 1000;');
-            
-            // Hide gold label text in ultra-compact mode
-            const goldLabel = document.querySelector('.gold-display .stat-label');
-            if (goldLabel) {
-                goldLabel.textContent = '';
-            }
-        } else {
-            container.classList.remove('ultra-compact');
-            // Don't remove compact class here, use setCompactMode for that
-        }
-    }
-    
-    /**
-     * Sets the compact mode
-     * @param compact Whether to use compact mode
-     */
-    public setCompactMode(compact: boolean): void {
-        this.isCompact = compact;
-        
-        // Get the container element
-        const container = document.querySelector('.vitals-container');
-        if (!container) {
-            console.warn('Vitals container not found');
-            return;
-        }
-        
-        // Check if we're in ultra-compact mode
-        const isUltraCompact = container.classList.contains('ultra-compact');
-        if (isUltraCompact) {
-            // Don't change compact mode if we're in ultra-compact mode
-            return;
-        }
-        
-        // Set the compact class
-        if (compact) {
-            container.classList.add('compact');
-            container.setAttribute('style', 'width: 280px; padding: 8px; bottom: 10px; left: 10px; position: fixed; z-index: 1000;');
-            
-            // Hide gold label text in compact mode
-            const goldLabel = document.querySelector('.gold-display .stat-label');
-            if (goldLabel) {
-                goldLabel.textContent = '';
-            }
-        } else {
-            container.classList.remove('compact');
-            container.setAttribute('style', 'width: 350px; padding: 10px; bottom: 10px; left: 10px; position: fixed; z-index: 1000;');
-            
-            // Show gold label text in normal mode
-            const goldLabel = document.querySelector('.gold-display .stat-label');
-            if (goldLabel) {
-                goldLabel.textContent = 'Gold';
-            }
-        }
-    }
-    
-    /**
-     * Gets the current compact mode state
-     * @returns Whether compact mode is enabled
-     */
-    public isCompactMode(): boolean {
-        return this.isCompact;
-    }
-    
-    /**
-     * Destroys the vitals UI and removes event listeners
-     */
-    public destroy(): void {
-        // Remove update callback
-        if (this.updateCallback) {
-            this.scene.events.off('update', this.updateCallback);
-            this.updateCallback = null;
-        }
-        
-        // Remove event listeners
-        this.scene.events.off('player-aggression-changed');
-        this.scene.events.off('god-mode-changed');
-        this.scene.events.off('player-level-up');
-        this.scene.events.off('show-message');
-        
-        // Destroy vitals UI
-        if (this.vitals) {
-            this.vitals.destroy();
-            this.vitals = null;
-        }
-    }
-    
-    /**
-     * Updates all UI elements based on player stats
-     */
-    public updateUI(): void {
-        // Get player stats
-        const playerStats = (this.scene as any).playerStats;
-        if (!playerStats || !this.vitals) return;
-        
-        this.vitals.updateHealthBar(playerStats.health, playerStats.maxHealth);
-        this.vitals.updateXPBar(playerStats.xp, playerStats.xpToNextLevel);
-        this.vitals.updateGoldDisplay(playerStats.gold);
-    }
-    
-    /**
-     * Updates the gold display with animation
+     * Updates the gold display
      * @param gold New gold amount
      * @param animate Whether to animate the change
      */
@@ -292,9 +187,28 @@ export class MedievalVitalsIntegration {
         this.vitals.updateGoldWithAnimation(gold, animate);
         
         // Also update the player stats if they exist
-        const playerStats = (this.scene as any).playerStats;
-        if (playerStats) {
-            playerStats.gold = gold;
+        const gameScene = this.scene as Game;
+        if (gameScene.playerStats) {
+            gameScene.playerStats.gold = gold;
+        }
+    }
+    
+    /**
+     * Destroys the medieval vitals UI
+     */
+    public destroy(): void {
+        // Remove event listeners
+        this.scene.events.off('player-stats-updated', this.updateUI, this);
+        this.scene.events.off('player-health-changed', this.updateUI, this);
+        this.scene.events.off('player-xp-changed', this.updateUI, this);
+        this.scene.events.off('player-gold-changed', this.updateGold, this);
+        this.scene.events.off('player-aggression-changed', this.updateAggression, this);
+        this.scene.events.off('player-god-mode-changed', this.updateGodMode, this);
+        
+        // Destroy the vitals UI
+        if (this.vitals) {
+            this.vitals.destroy();
+            this.vitals = null;
         }
     }
 }
