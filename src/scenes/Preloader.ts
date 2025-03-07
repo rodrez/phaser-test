@@ -57,6 +57,7 @@ export class Preloader extends Scene
 
         // Load the player sprite sheet
         this.load.spritesheet('player', '/characters/player.png', { frameWidth: 48, frameHeight: 48 });
+        this.load.image('deer', '/monsters/deer.png');
 
         // Create fallback textures for icons
         this.createFallbackIconTextures();

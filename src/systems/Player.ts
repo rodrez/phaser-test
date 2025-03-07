@@ -467,4 +467,11 @@ export class PlayerSystem {
         // Update health bar position if it exists
         this.updateHealthBarPosition();
     }
+
+    /**
+     * Returns the player sprite instance
+     */
+    getPlayerSprite(): Phaser.Physics.Arcade.Sprite {
+        return this.player;
+    }
 }

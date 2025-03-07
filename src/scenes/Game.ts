@@ -10,6 +10,9 @@ import { ItemSystem } from '../systems/Item';
 import { InventorySystem } from '../systems/Inventory';
 import { SkillManager } from '../systems/skills/SkillManager';
 import { createAllSkills } from '../systems/skills/index';
+import { MonsterSystem } from '../systems/monsters/MonsterSystem';
+import { MonsterPopupSystem } from '../systems/monsters/MonsterPopupSystem';
+import { PopupSystem } from '../systems/PopupSystem';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -28,6 +31,9 @@ export class Game extends Scene {
     
     // Flag system
     flagSystem!: FlagSystem;
+    
+    // Popup system
+    popupSystem!: PopupSystem;
     
     // Input keys for movement
     keyW!: Phaser.Input.Keyboard.Key;
@@ -75,9 +81,24 @@ export class Game extends Scene {
 
     // Skill system
     skillManager!: SkillManager;
+    
+    // Monster system
+    monsterSystem!: MonsterSystem;
+    
+    // Monster popup system
+    monsterPopupSystem!: MonsterPopupSystem;
 
     constructor() {
-        super('Game');
+        super({ key: 'Game' });
+    }
+
+    /**
+     * Initialize the scene
+     * This is called before preload() and create()
+     */
+    init() {
+        // Add event listener for scene shutdown
+        this.events.once('shutdown', this.cleanupResources, this);
     }
 
     preload() {
@@ -96,6 +117,16 @@ export class Game extends Scene {
         this.load.audio('repair', 'assets/repair.mp3');
         this.load.audio('powerup', 'assets/powerup.mp3');
         this.load.audio('explosion', 'assets/explosion.mp3');
+        
+        // Load material assets
+        this.load.image('leather', 'assets/materials/leather.png');
+        
+        // Load monster assets
+        this.load.image('deer', 'assets/monsters/deer.png');
+        
+        // Load wolf as a single image instead of a spritesheet for now
+        // This prevents animation errors if the spritesheet format is incorrect
+        this.load.image('wolf', 'assets/monsters/wolf.png');
     }
 
     create() {
@@ -217,11 +248,14 @@ export class Game extends Scene {
         });
 
         // Initialize flag system
-        this.flagSystem = new FlagSystem(this, this.mapSystem);
+        this.popupSystem = new PopupSystem(this, this.mapSystem);
+        this.flagSystem = new FlagSystem(this, this.mapSystem, this.popupSystem);
 
         // Initialize skill system
         this.skillManager = new SkillManager(this);
         this.skillManager.initialize(5, createAllSkills()); // Start with 5 skill points
+        
+        console.log('Game started! 🎮');
     }
 
     /**
@@ -300,60 +334,59 @@ export class Game extends Scene {
      * Start the actual gameplay after the intro
      */
     startGameplay() {
-        console.log("Game started - player can now move and interact!");
-        
-        // Here you can add any gameplay initialization logic
-        // For example, spawning initial entities, etc.
-        
-        // Initialize environment with trees
-        this.generateEnvironment();
-        
-        // Listen for map changes to update environment
-        this.mapSystem.leafletMap.on('moveend', () => {
-            // Regenerate trees when the map is moved
-            this.generateEnvironment();
-        });
-        
-        // Setup tree interaction handler
+        // Player is already created and can move at this point
+        // No need to call enableMovement which doesn't exist
+
+        // Map environment creation
         this.setupTreeInteractions();
-        
-        // Setup fruit collection handler
         this.setupFruitInteractions();
         
-        // Setup context menu triggers
+        // Generate environment elements
+        this.generateEnvironment();
+        
+        // Setup context menu triggers for player and environment
         this.setupContextMenuTriggers();
         
-        // Create the player now that the intro message is dismissed
-        this.player = this.playerSystem.createPlayer();
-        
-        // Set up flag system after map and player are created
-        this.flagSystem = new FlagSystem(this, this.mapSystem);
-        
-        // Add starting items to player inventory
-        this.addStartingItems();
-        
-        // Create menu button
-        this.createMenuButton();
+        // Set up key bindings for skill hotkeys, inventory, etc.
+        this.setupPlayerInput();
         
         // Add a couple of flags as examples
-        // One at the center
-        const centerFlag = this.flagSystem.createFlag(
-            this.mapSystem.leafletMap.getCenter().lat,
-            this.mapSystem.leafletMap.getCenter().lng,
-            true,
-            "Home Base"
-        );
-        
-        // And one a little distance away
-        const offsetFlag = this.flagSystem.createFlag(
-            this.mapSystem.leafletMap.getCenter().lat + 0.0005,
-            this.mapSystem.leafletMap.getCenter().lng + 0.0005,
-            false,
-            "Exploration Point"
-        );
+        if (this.mapSystem.leafletMap) {
+            const center = this.mapSystem.leafletMap.getCenter();
+            const centerFlag = this.flagSystem.createFlag(
+                center.lat,
+                center.lng,
+                true,
+                "Home Base"
+            );
+            
+            // And one a little distance away
+            const offsetFlag = this.flagSystem.createFlag(
+                center.lat + 0.0005,
+                center.lng + 0.0005,
+                false,
+                "Exploration Point"
+            );
+        }
         
         // Setup event listeners for flag system
         this.setupFlagEvents();
+        
+        // Initialize monster system after player is created and visible
+        console.log("Initializing monster system");
+        this.monsterSystem = new MonsterSystem(this, this.mapSystem, this.playerSystem, this.itemSystem);
+        
+        // Initialize monster popup system
+        console.log("Initializing monster popup system");
+        this.monsterPopupSystem = new MonsterPopupSystem(this, this.popupSystem);
+        
+        // Spawn some initial monsters with a delay to ensure player is fully initialized
+        this.time.delayedCall(500, () => {
+            console.log("Spawning initial monsters");
+            if (this.monsterSystem) {
+                this.monsterSystem.spawnRandomMonsters(5, 300);
+            }
+        });
         
         console.log('Game started! 🎮');
     }
@@ -433,6 +466,11 @@ export class Game extends Scene {
         
         // Ensure the map stays centered and all elements remain in the visible area
         this.ensureElementsInView();
+        
+        // Update monster system
+        if (this.monsterSystem) {
+            this.monsterSystem.update(time, delta);
+        }
     }
 
     /**
@@ -1830,5 +1868,32 @@ Gold: ${this.playerStats.gold}`;
         this.time.delayedCall(1100, () => {
             particles.destroy();
         });
+    }
+
+    /**
+     * Clean up resources when the scene is shut down
+     */
+    private cleanupResources(): void {
+        console.log('Cleaning up Game scene resources');
+        
+        // Clean up systems
+        if (this.mapSystem) {
+            this.mapSystem.destroyMap();
+        }
+        
+        if (this.flagSystem) {
+            this.flagSystem.destroy();
+        }
+        
+        if (this.popupSystem) {
+            this.popupSystem.destroy();
+        }
+        
+        // Remove event listeners
+        this.events.off('flag-placement-failed');
+        this.events.off('flag-teleport');
+        this.events.off('flag-repaired');
+        this.events.off('flag-hardened');
+        this.events.off('flag-destroyed');
     }
 }

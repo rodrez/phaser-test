@@ -2,10 +2,12 @@ import { Scene } from 'phaser';
 import * as L from 'leaflet';
 import * as turf from '@turf/turf';
 import { MapSystem } from './Map';
+import { PopupSystem } from './PopupSystem';
 
 // Extend the Leaflet Marker type to include our custom popup property
 interface FlagMarker extends L.Marker {
     popup?: L.Popup;
+    _interactionClone?: HTMLElement;
 }
 
 export interface FlagData {
@@ -24,6 +26,7 @@ export interface FlagData {
 export class FlagSystem {
     private scene: Scene;
     private mapSystem: MapSystem;
+    private popupSystem: PopupSystem;
     
     // Storage for all flags - make this public to allow access from Game scene
     public flags: Map<string, FlagData> = new Map();
@@ -36,9 +39,10 @@ export class FlagSystem {
     // Default flag radius (in meters)
     readonly flagRadius: number = 200;
     
-    constructor(scene: Scene, mapSystem: MapSystem) {
+    constructor(scene: Scene, mapSystem: MapSystem, popupSystem: PopupSystem) {
         this.scene = scene;
         this.mapSystem = mapSystem;
+        this.popupSystem = popupSystem;
         
         // Add custom CSS for flag circles
         const flagCircleStyle = document.createElement('style');
@@ -70,10 +74,18 @@ export class FlagSystem {
                 transition: transform 0.2s ease, filter 0.2s ease;
             }
             
-            /* Hover effects for flag markers */
+            /* Hover effects for flag markers - use transform-origin to prevent position shift */
             .player-flag-marker:hover, .flag-marker:hover {
                 transform: scale(1.2) !important;
+                transform-origin: center bottom !important;
                 z-index: 1001 !important; /* Ensure hovered flag is above others */
+            }
+            
+            /* Fix for interaction layer flag markers */
+            #map-interaction-layer .player-flag-marker:hover, 
+            #map-interaction-layer .flag-marker:hover {
+                transform: scale(1.2) !important;
+                transform-origin: center bottom !important;
             }
             
             /* Merged flag circles style */
@@ -104,17 +116,12 @@ export class FlagSystem {
             .flag-marker:hover {
                 filter: drop-shadow(0 0 8px rgba(34, 102, 255, 1.0));
             }
-            
-            /* Make the flag context menu more attractive */
-            .flag-context-menu {
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            }
         `;
         document.head.appendChild(flagCircleStyle);
         
         // Create a custom pane for flag circles with proper z-index
         if (this.mapSystem.leafletMap) {
+            // Create a custom pane for circles if it doesn't exist yet
             if (!this.mapSystem.leafletMap.getPane('flagCirclePane')) {
                 this.mapSystem.leafletMap.createPane('flagCirclePane');
                 const pane = this.mapSystem.leafletMap.getPane('flagCirclePane');
@@ -141,7 +148,7 @@ export class FlagSystem {
                     weight: 3,
                     opacity: 0.8,
                     color: '#3388ff',
-                    fillOpacity: 0.25,
+                    fillOpacity: 0.2,
                     className: 'merged-flag-circles'
                 },
                 pane: 'flagCirclePane',
@@ -482,16 +489,6 @@ export class FlagSystem {
         
         console.log(`Adding flag marker at [${flag.lat}, ${flag.lon}]`);
         
-        // Create a custom pane for circles if it doesn't exist yet
-        if (!this.mapSystem.leafletMap.getPane('flagCirclePane')) {
-            this.mapSystem.leafletMap.createPane('flagCirclePane');
-            const pane = this.mapSystem.leafletMap.getPane('flagCirclePane');
-            if (pane) {
-                pane.style.zIndex = '450'; // Higher z-index to appear above player
-                console.log('Created custom pane for flag circles');
-            }
-        }
-        
         // Create the circle but don't add it to the map directly
         const flagCircle = L.circle([flag.lat, flag.lon], {
             radius: this.flagRadius,
@@ -519,81 +516,74 @@ export class FlagSystem {
         // Add the marker to the map
         flagMarker.addTo(this.mapSystem.leafletMap!);
         
-        // Create a popup with the context menu but don't bind it yet
-        const popupContent = this.createFlagContextMenu(flag);
-        const popup = L.popup({ 
-            className: 'flag-context-menu',
-            closeButton: true,
-            autoClose: false,
-            closeOnEscapeKey: true
-        });
-        popup.setContent(popupContent);
-        
-        // Add click event listener for left-click interaction
-        flagMarker.on('click', (e) => {
-            // Prevent the default behavior
-            L.DomEvent.stopPropagation(e);
-            
-            // Set the popup position to the marker's position
-            popup.setLatLng(flagMarker.getLatLng());
-            
-            // Open the popup on the map
-            popup.openOn(this.mapSystem.leafletMap!);
-            
-            // Get the popup DOM element
-            const popupEl = popup.getElement();
-            if (!popupEl) return;
-            
-            // Find all buttons in the popup
-            const jumpButton = popupEl.querySelector('.jump-to-flag');
-            const destroyButton = popupEl.querySelector('.destroy-flag');
-            const repairButton = popupEl.querySelector('.repair-flag');
-            const hardenButton = popupEl.querySelector('.harden-flag');
-            
-            // Add event listeners to buttons
-            if (jumpButton) {
-                jumpButton.addEventListener('click', () => {
-                    this.jumpToFlag(flag.id);
-                    popup.close();
-                });
-            }
-            
-            if (destroyButton) {
-                destroyButton.addEventListener('click', () => {
-                    if (confirm(`Are you sure you want to destroy "${flag.name}"?`)) {
-                        this.removeFlag(flag.id);
-                    } else {
-                        popup.close();
+        // Make the original marker invisible but keep it for positioning
+        setTimeout(() => {
+            const markerElement = flagMarker.getElement();
+            if (markerElement) {
+                // Make the original marker invisible by setting opacity to 0
+                markerElement.style.opacity = '0';
+                markerElement.style.pointerEvents = 'none';
+                
+                // Move the marker to the interaction layer
+                if (this.mapSystem.interactionElement) {
+                    try {
+                        // Get the marker's position in screen coordinates
+                        const markerPos = this.mapSystem.geoToScreenCoordinates(flag.lat, flag.lon);
+                        if (!markerPos) return;
+                        
+                        // Clone the marker element to the interaction layer
+                        const clone = markerElement.cloneNode(true) as HTMLElement;
+                        // Reset opacity for the clone
+                        clone.style.opacity = '1';
+                        clone.style.pointerEvents = 'auto';
+                        
+                        // Position the clone at the exact same position as the original marker
+                        clone.style.position = 'absolute';
+                        clone.style.left = `${markerPos.x - 12}px`; // Adjust for icon anchor (half of iconSize width)
+                        clone.style.top = `${markerPos.y - 24}px`; // Adjust for icon anchor (full iconSize height)
+                        clone.style.zIndex = '1000';
+                        clone.style.transform = 'none'; // Prevent any transform that might shift position
+                        
+                        this.mapSystem.interactionElement.appendChild(clone);
+                        
+                        // Add click event to the cloned marker
+                        clone.addEventListener('click', (e) => {
+                            // Prevent the default behavior
+                            e.stopPropagation();
+                            
+                            // Show the flag popup using the PopupSystem
+                            this.showFlagPopup(flag);
+                        });
+                        
+                        // Store the clone reference for later updates
+                        flagMarker._interactionClone = clone;
+                    } catch (error) {
+                        console.error('Error cloning marker to interaction layer:', error);
+                        // If cloning fails, make the original marker visible and interactive again
+                        markerElement.style.opacity = '1';
+                        markerElement.style.pointerEvents = 'auto';
                     }
-                });
+                } else {
+                    console.warn('Interaction layer not available for flag marker');
+                    // Fallback to using the original marker's click event
+                    // Make the original marker visible and interactive again
+                    markerElement.style.opacity = '1';
+                    markerElement.style.pointerEvents = 'auto';
+                    
+                    flagMarker.on('click', (e) => {
+                        console.log('Flag marker clicked (fallback):', flag.id);
+                        // Prevent the default behavior
+                        L.DomEvent.stopPropagation(e);
+                        
+                        // Show the flag popup using the PopupSystem
+                        this.showFlagPopup(flag);
+                    });
+                }
             }
-            
-            if (repairButton) {
-                repairButton.addEventListener('click', () => {
-                    this.repairFlag(flag.id);
-                    // Update the popup content to reflect repairs
-                    popup.setContent(this.createFlagContextMenu(flag));
-                    // Reopen to reflect changes
-                    popup.openOn(this.mapSystem.leafletMap!);
-                });
-            }
-            
-            if (hardenButton) {
-                hardenButton.addEventListener('click', () => {
-                    this.hardenFlag(flag.id);
-                    // Update the popup content
-                    popup.setContent(this.createFlagContextMenu(flag));
-                    // Reopen to reflect changes
-                    popup.openOn(this.mapSystem.leafletMap!);
-                });
-            }
-        });
+        }, 100);
         
         // Store marker reference
         this.flagMarkers.set(flag.id, flagMarker);
-        
-        // Store popup reference for later updates
-        flagMarker.popup = popup;
         
         // Update the merged circles
         this.updateMergedFlagCircles();
@@ -607,6 +597,57 @@ export class FlagSystem {
         });
         
         return flagMarker;
+    }
+    
+    /**
+     * Show the flag popup using the PopupSystem
+     */
+    private showFlagPopup(flag: FlagData): void {
+        // Create the popup content
+        const popupContent = {
+            html: this.createFlagContextMenu(flag),
+            buttons: [
+                {
+                    selector: '.jump-to-flag',
+                    onClick: () => {
+                        this.jumpToFlag(flag.id);
+                        this.popupSystem.closePopupsByClass('flag-popup');
+                    }
+                },
+                {
+                    selector: '.destroy-flag',
+                    onClick: () => {
+                        if (confirm(`Are you sure you want to destroy "${flag.name}"?`)) {
+                            this.removeFlag(flag.id);
+                        } else {
+                            this.popupSystem.closePopupsByClass('flag-popup');
+                        }
+                    }
+                },
+                {
+                    selector: '.repair-flag',
+                    onClick: () => {
+                        this.repairFlag(flag.id);
+                        // Update the popup content to reflect repairs
+                        this.showFlagPopup(flag);
+                    }
+                },
+                {
+                    selector: '.harden-flag',
+                    onClick: () => {
+                        this.hardenFlag(flag.id);
+                        // Update the popup content
+                        this.showFlagPopup(flag);
+                    }
+                }
+            ]
+        };
+        
+        // Create the popup
+        this.popupSystem.createPopup(flag.lat, flag.lon, popupContent, {
+            className: 'flag-popup',
+            offset: { x: 0, y: -30 }
+        });
     }
     
     /**
@@ -667,98 +708,6 @@ export class FlagSystem {
                     </button>
                 </div>
             </div>
-            
-            <style>
-                .flag-menu-container {
-                    min-width: 220px;
-                    padding: 12px;
-                    font-family: Arial, sans-serif;
-                    background-color: #fff;
-                    border-radius: 8px;
-                }
-                
-                .flag-header {
-                    margin-bottom: 12px;
-                    border-bottom: 1px solid #eee;
-                    padding-bottom: 8px;
-                }
-                
-                .flag-header h3 {
-                    margin: 0;
-                    margin-bottom: 4px;
-                    font-size: 18px;
-                    color: #333;
-                }
-                
-                .flag-type {
-                    font-size: 12px;
-                    color: #666;
-                    font-style: italic;
-                }
-                
-                .flag-info {
-                    margin-bottom: 15px;
-                    font-size: 13px;
-                    background-color: #f8f8f8;
-                    padding: 8px;
-                    border-radius: 4px;
-                }
-                
-                .info-item {
-                    margin: 6px 0;
-                    display: flex;
-                    justify-content: space-between;
-                }
-                
-                .info-label {
-                    font-weight: bold;
-                    margin-right: 8px;
-                    color: #555;
-                }
-                
-                .flag-actions {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-                
-                .flag-action-button {
-                    padding: 8px 12px;
-                    border: none;
-                    border-radius: 4px;
-                    background: #f0f0f0;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    font-size: 14px;
-                    transition: all 0.2s ease;
-                    font-weight: 500;
-                }
-                
-                .flag-action-button:hover {
-                    background: #e0e0e0;
-                    transform: translateY(-1px);
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                }
-                
-                .flag-action-button.danger {
-                    background: #ffebee;
-                    color: #d32f2f;
-                }
-                
-                .flag-action-button.danger:hover {
-                    background: #ffcdd2;
-                }
-                
-                .action-icon {
-                    margin-right: 8px;
-                    font-size: 16px;
-                }
-                
-                .health-indicator {
-                    font-weight: bold;
-                }
-            </style>
         `;
     }
     
@@ -961,6 +910,16 @@ export class FlagSystem {
             if (marker.popup && marker.popup.isOpen()) {
                 marker.popup.close();
             }
+            
+            // Remove the interaction clone if it exists
+            if (marker._interactionClone && this.mapSystem.interactionElement) {
+                try {
+                    this.mapSystem.interactionElement.removeChild(marker._interactionClone);
+                } catch (error) {
+                    console.warn('Error removing interaction clone:', error);
+                }
+            }
+            
             marker.remove();
         }
         
@@ -999,10 +958,13 @@ export class FlagSystem {
             }
         }
         
-        // Clear collections
+        // Clear all collections
+        this.flags.clear();
         this.flagMarkers.clear();
         this.flagCircles.clear();
-        this.flags.clear();
+        
+        // Close any open popups
+        this.popupSystem.closePopupsByClass('flag-popup');
     }
     
     /**
@@ -1024,6 +986,25 @@ export class FlagSystem {
             // If the popup is open, update its position too
             if (marker.popup && marker.popup.isOpen()) {
                 marker.popup.setLatLng([lat, lon]);
+            }
+            
+            // If there's an interaction clone, we need to update it
+            if (marker._interactionClone && this.mapSystem.interactionElement) {
+                // Get the new screen coordinates
+                const markerPos = this.mapSystem.geoToScreenCoordinates(lat, lon);
+                if (markerPos) {
+                    // Update the clone's position
+                    marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Adjust for icon anchor
+                    marker._interactionClone.style.top = `${markerPos.y - 24}px`; // Adjust for icon anchor
+                } else {
+                    // If we can't get screen coordinates, remove the old clone
+                    try {
+                        this.mapSystem.interactionElement.removeChild(marker._interactionClone);
+                        marker._interactionClone = undefined;
+                    } catch (error) {
+                        console.warn('Error removing interaction clone:', error);
+                    }
+                }
             }
         }
         

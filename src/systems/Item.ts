@@ -496,6 +496,21 @@ export class ItemSystem {
             healthRestore: 3
         }));
         
+        // Add material resources
+        this.registerItem(new BaseItem({
+            id: 'leather',
+            name: 'Leather',
+            description: 'Tanned animal hide. Used for crafting armor and other items.',
+            iconUrl: 'assets/materials/leather.svg',
+            type: ItemType.RESOURCE,
+            rarity: ItemRarity.COMMON,
+            weight: 0.5,
+            value: 5,
+            stackable: true,
+            maxStackSize: 20,
+            usable: false
+        }));
+        
         // Register all items in the database
         this.registerItem(leatherChest);
         this.registerItem(minorHealingPotion);
