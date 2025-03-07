@@ -187,23 +187,14 @@ export class Wolf extends BaseMonster {
     }
     
     protected handleAttackingState(time: number, delta: number, distToPlayer: number): void {
-        // Skip animations for now
-        // if ((!this.anims.isPlaying || this.anims.currentAnim?.key !== 'wolf_attack')) {
-        //     if (this.safePlayAnimation('wolf_attack')) {
-        //         // Damage the player
-        //         // In a real implementation, you would have a proper combat system
-        //         console.log('Wolf attacks player for', this.attributes.damage, 'damage');
-        //         
-        //         // Wait for a cooldown before attacking again
-        //         this.attackCooldown = 1000;
-        //     }
-        // }
-        
-        // Damage the player without animation
-        console.log('Wolf attacks player for', this.attributes.damage, 'damage');
-        
-        // Wait for a cooldown before attacking again
-        this.attackCooldown = 1000;
+        // If we haven't set up the attack cooldown yet
+        if (this.attackCooldown <= 0) {
+            // Attack the player
+            this.attackPlayer();
+            
+            // Set cooldown for next attack
+            this.attackCooldown = 1000; // 1 second cooldown
+        }
         
         // Stop moving while attacking
         this.setVelocity(0, 0);

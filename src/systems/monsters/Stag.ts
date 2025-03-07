@@ -198,8 +198,14 @@ export class Stag extends BaseMonster {
             return;
         }
         
-        // Perform attack (animation and damage logic would go here)
-        // For now, we'll just make the stag move randomly to simulate a blind rage
+        // Attack the player if very close (within 20 pixels)
+        if (distToPlayer < 20 && time > this.stateTimer) {
+            // Attack the player
+            this.attackPlayer();
+            
+            // Set cooldown for next attack
+            this.stateTimer = time + 1500; // 1.5 second cooldown for stag attacks
+        }
         
         // Generate random movement in blind rage (stags go blind in rage according to lore)
         const angle = Math.random() * Math.PI * 2;

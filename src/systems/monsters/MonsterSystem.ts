@@ -108,12 +108,25 @@ export class MonsterSystem {
     
     // Handle collision between player and monster
     private handlePlayerCollision(player: any, monster: any): void {
-        // This is just a basic implementation
-        // In a real game, you'd handle this in the combat system
-        
         // For passive monsters, make them flee
         if (monster.behavior === MonsterBehavior.PASSIVE) {
             monster.changeState('fleeing');
+            return;
+        }
+        
+        // Use the combat system if available
+        const combatSystem = (this.scene as any).combatSystem;
+        if (combatSystem) {
+            // We don't handle actual damage here - that's done in the monster's attacking state
+            // This is just for collision response
+            
+            // If the monster is neutral, make it aggressive when collided with
+            if (monster.behavior === MonsterBehavior.NEUTRAL) {
+                monster.changeState('chasing');
+            }
+        } else {
+            // Fallback for backward compatibility
+            console.warn('Combat system not found, using fallback collision handling');
         }
     }
     

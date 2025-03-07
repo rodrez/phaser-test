@@ -436,6 +436,42 @@ export class PlayerSystem {
     }
 
     /**
+     * Applies damage to the player.
+     * This is a simple implementation that will be replaced by the CombatSystem.
+     * Kept for backward compatibility.
+     */
+    takeDamage(amount: number) {
+        if (!(this.scene as any).playerStats) {
+            return;
+        }
+
+        const stats = (this.scene as any).playerStats;
+        stats.health = Math.max(0, stats.health - amount);
+        this.updateHealthBar();
+        
+        // Flash the player red to indicate damage
+        this.scene.tweens.add({
+            targets: this.player,
+            alpha: 0.5,
+            duration: 100,
+            yoyo: true,
+            repeat: 1,
+            onComplete: () => {
+                this.player.alpha = 1;
+            }
+        });
+        
+        // Check if player died
+        if (stats.health <= 0) {
+            // Handle death - this will be handled by CombatSystem in the future
+            console.log('Player died!');
+            this.scene.time.delayedCall(1000, () => {
+                this.scene.scene.start('GameOver');
+            });
+        }
+    }
+
+    /**
      * Ensures the player is correctly positioned and visible.
      * Call this after scene changes or when player visibility changes.
      */

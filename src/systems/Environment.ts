@@ -123,9 +123,30 @@ export class EnvironmentSystem {
             // Play the animation with a random starting frame for variety
             tree.anims.play('spruce-sway');
             tree.anims.setProgress(Math.random()); // Start at random point in animation
+            
+            // Set data for healing spruce - provides less wood (1-2)
+            tree.setData('woodAmount', { min: 1, max: 2 });
+            tree.setData('treeName', 'Healing Spruce');
+            tree.setData('isHealingSpruce', true);
+            
+            // Add a healing aura (invisible circle) around the tree
+            const healingRadius = 100; // Radius in pixels
+            const healingAura = this.scene.add.circle(tree.x, tree.y, healingRadius, 0x00ff00, 0.1);
+            healingAura.setVisible(false); // Make it invisible by default
+            healingAura.setData('healingPower', 1); // Healing amount per tick
+            healingAura.setData('parentTree', tree);
+            tree.setData('healingAura', healingAura);
+            
+            // Add the healing aura to the environment group
+            this.environmentGroup.add(healingAura);
         } else {
             // Create regular tree image
             tree = this.scene.add.image(x, y, treeType);
+            
+            // Set data for regular tree - provides more wood (2-4)
+            tree.setData('woodAmount', { min: 2, max: 4 });
+            tree.setData('treeName', 'Oak Tree');
+            tree.setData('isHealingSpruce', false);
         }
         
         // Add some randomness to scale (0.8 to 1.2 of original size)
@@ -150,9 +171,12 @@ export class EnvironmentSystem {
         // Add to environment group
         this.environmentGroup.add(tree);
         
-        // 40% chance to add fruits to the tree
-        if (Math.random() < 0.4) {
-            this.addFruitsToTree(tree as Phaser.GameObjects.Image | Phaser.GameObjects.Sprite);
+        // Only add fruits to healing spruce trees (spruce-tree type)
+        if (treeType === 'spruce-tree') {
+            // 80% chance to add fruits to the healing spruce
+            if (Math.random() < 0.8) {
+                this.addFruitsToTree(tree as Phaser.GameObjects.Image | Phaser.GameObjects.Sprite);
+            }
         }
         
         return tree;
@@ -358,6 +382,9 @@ export class EnvironmentSystem {
         const treeWidth = tree.displayWidth;
         const treeHeight = tree.displayHeight;
         
+        // Check if this is a healing spruce tree
+        const isHealingSpruce = tree.getData('treeName') === 'Healing Spruce';
+        
         // Select a random fruit type for this tree
         const fruitTypes = [
             { frame: 0, type: FruitType.APPLE },    // Apple
@@ -365,7 +392,23 @@ export class EnvironmentSystem {
             { frame: 3, type: FruitType.CHERRY }    // Cherry
         ];
         
-        const selectedFruit = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+        // For healing spruce, prefer apples and cherries which will have healing properties
+        let selectedFruit;
+        if (isHealingSpruce) {
+            // 70% chance for healing fruits (apple or cherry)
+            if (Math.random() < 0.7) {
+                // Choose between apple and cherry
+                selectedFruit = Math.random() < 0.5 ? 
+                    fruitTypes[0] : // Apple
+                    fruitTypes[2];  // Cherry
+            } else {
+                // 30% chance for orange
+                selectedFruit = fruitTypes[1]; // Orange
+            }
+        } else {
+            // Regular tree - random fruit
+            selectedFruit = fruitTypes[Math.floor(Math.random() * fruitTypes.length)];
+        }
         
         // Create fruits and add them to the tree
         for (let i = 0; i < fruitCount; i++) {
@@ -390,6 +433,43 @@ export class EnvironmentSystem {
             // Store the fruit type on the fruit object for reference
             fruit.setData('fruitType', selectedFruit.type);
             fruit.setData('fruitFrame', selectedFruit.frame);
+            
+            // Add healing properties to fruits from healing spruce
+            if (isHealingSpruce) {
+                // Healing power depends on the fruit type
+                let healingPower = 0;
+                
+                if (selectedFruit.type === FruitType.APPLE) {
+                    healingPower = 10; // Apples heal 10 HP
+                } else if (selectedFruit.type === FruitType.CHERRY) {
+                    healingPower = 5;  // Cherries heal 5 HP
+                } else if (selectedFruit.type === FruitType.ORANGE) {
+                    healingPower = 8;  // Oranges heal 8 HP
+                }
+                
+                fruit.setData('healingPower', healingPower);
+                fruit.setData('fromHealingSpruce', true);
+                
+                // Add a subtle glow effect to healing fruits
+                const glowColor = 0x88ff88; // Soft green glow
+                const glowAlpha = 0.3;
+                
+                // Create a glow circle behind the fruit
+                const glow = this.scene.add.circle(0, 0, fruit.width * 0.7, glowColor, glowAlpha);
+                glow.setDepth(fruit.depth - 0.1);
+                
+                // Make the glow follow the fruit
+                fruit.setData('glowEffect', glow);
+                
+                // Update glow position when fruit moves
+                this.scene.events.on('update', () => {
+                    if (glow && fruit && fruit.active) {
+                        glow.setPosition(fruit.x, fruit.y);
+                    } else if (glow && glow.active) {
+                        glow.destroy();
+                    }
+                });
+            }
             
             // Make the fruit interactive
             this.makeFruitInteractive(fruit, tree);
@@ -496,5 +576,16 @@ export class EnvironmentSystem {
                 }
             });
         }
+    }
+    
+    /**
+     * Get all healing auras in the environment
+     * @returns Array of healing aura game objects
+     */
+    getHealingAuras(): Phaser.GameObjects.GameObject[] {
+        // Filter the environment group to find all healing auras
+        return this.environmentGroup.getChildren().filter(obj => {
+            return obj instanceof Phaser.GameObjects.Arc && obj.getData('healingPower') !== undefined;
+        });
     }
 }

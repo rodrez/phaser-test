@@ -133,12 +133,16 @@ export class MonsterPopupSystem {
         // Close the popup
         this.closeMonsterPopup();
         
-        // This is where you would integrate with your combat system
-        // For now, just deal damage to the monster
-        monster.takeDamage(10); // Deal 10 damage to the monster
+        // Use combat system if available
+        const scene = this.scene as any;
+        if (scene.combatSystem) {
+            scene.combatSystem.playerAttackMonster(monster);
+        } else {
+            // Fallback for backward compatibility
+            monster.takeDamage(10); // Deal 10 damage to the monster
+        }
         
         // Show feedback
-        const scene = this.scene as any;
         if (scene.uiSystem) {
             scene.uiSystem.showMessage(`Attacking ${monster.monsterName}!`, 'info', 2000);
         }

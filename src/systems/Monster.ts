@@ -431,9 +431,20 @@ export class Monster extends Physics.Arcade.Sprite {
         
         // Attack logic - only attack once per second
         if (time > this.stateTimer) {
-            // Deal damage to player
-            // TODO: Implement actual damage to player when combat system is ready
-            console.log(`${this.monsterName} attacks player for ${this.attributes.damage} damage`);
+            // Deal damage to player using combat system if available
+            const combatSystem = (this.scene as any).combatSystem;
+            if (combatSystem) {
+                combatSystem.monsterAttackPlayer(this, this.attributes.damage);
+            } else {
+                // Fallback for backward compatibility
+                console.log(`${this.monsterName} attacks player for ${this.attributes.damage} damage`);
+                
+                // Try to use player's takeDamage method if available
+                const playerSystem = (this.scene as any).playerSystem;
+                if (playerSystem && typeof playerSystem.takeDamage === 'function') {
+                    playerSystem.takeDamage(this.attributes.damage);
+                }
+            }
             
             // Set cooldown for next attack
             this.stateTimer = time + 1000; // 1 second cooldown

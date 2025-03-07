@@ -131,6 +131,25 @@ export abstract class BaseMonster extends Physics.Arcade.Sprite {
         }
     }
 
+    /**
+     * Attack the player using the combat system
+     */
+    protected attackPlayer(): void {
+        // Use combat system if available
+        const combatSystem = (this.scene as any).combatSystem;
+        if (combatSystem) {
+            combatSystem.monsterAttackPlayer(this, this.attributes.damage);
+        } else {
+            // Fallback for backward compatibility
+            const playerSystem = (this.scene as any).playerSystem;
+            if (playerSystem && typeof playerSystem.takeDamage === 'function') {
+                playerSystem.takeDamage(this.attributes.damage);
+            } else {
+                console.log(`${this.monsterName} attacks player for ${this.attributes.damage} damage`);
+            }
+        }
+    }
+
     protected die(): void {
         this.changeState(MonsterState.DEAD);
         

@@ -13,6 +13,7 @@ import { createAllSkills } from '../systems/skills/index';
 import { MonsterSystem } from '../systems/monsters/MonsterSystem';
 import { MonsterPopupSystem } from '../systems/monsters/MonsterPopupSystem';
 import { PopupSystem } from '../systems/PopupSystem';
+import { CombatSystem } from '../systems/Combat';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -34,6 +35,9 @@ export class Game extends Scene {
     
     // Popup system
     popupSystem!: PopupSystem;
+    
+    // Combat system
+    combatSystem!: CombatSystem;
     
     // Input keys for movement
     keyW!: Phaser.Input.Keyboard.Key;
@@ -193,8 +197,11 @@ export class Game extends Scene {
         // Set up keyboard input for player movement
         this.setupPlayerInput();
 
-        // Initialize the player system but don't create the player yet
+        // Initialize player system and create player
         this.playerSystem = new PlayerSystem(this);
+        
+        // Initialize combat system
+        this.combatSystem = new CombatSystem(this, this.playerSystem);
         
         // Create the player - but initially hide it until the intro message is dismissed
         this.player = this.playerSystem.createPlayer();
@@ -464,6 +471,9 @@ export class Game extends Scene {
         // Sync aggression state from player stats to UI
         this.uiSystem.setAggression(this.playerStats.isAggressive);
         
+        // Check if player is within any healing aura
+        this.checkHealingAuras();
+        
         // Ensure the map stays centered and all elements remain in the visible area
         this.ensureElementsInView();
         
@@ -471,6 +481,152 @@ export class Game extends Scene {
         if (this.monsterSystem) {
             this.monsterSystem.update(time, delta);
         }
+    }
+
+    /**
+     * Check if player is within any healing aura and apply healing effects
+     */
+    checkHealingAuras(): void {
+        if (!this.player || !this.environmentSystem || !this.playerStats) return;
+        
+        // Get all healing auras
+        const healingAuras = this.environmentSystem.getHealingAuras();
+        
+        // Track if player is in any aura
+        let isInAnyAura = false;
+        
+        // Check each aura
+        for (const aura of healingAuras) {
+            const auraCircle = aura as Phaser.GameObjects.Arc;
+            
+            // Calculate distance between player and aura center
+            const distance = Phaser.Math.Distance.Between(
+                this.player.x, this.player.y,
+                auraCircle.x, auraCircle.y
+            );
+            
+            // Check if player is within the aura radius
+            if (distance <= auraCircle.radius) {
+                isInAnyAura = true;
+                
+                // Apply healing effect based on time (once per second)
+                const currentTime = this.time.now;
+                const lastHealTime = aura.getData('lastHealTime') || 0;
+                
+                if (currentTime - lastHealTime >= 1000) { // 1 second interval
+                    // Get healing power
+                    const healingPower = aura.getData('healingPower') || 1;
+                    
+                    // Apply healing if player is not at max health
+                    if (this.playerStats.health < this.playerStats.maxHealth) {
+                        // Heal the player
+                        this.playerStats.health = Math.min(
+                            this.playerStats.health + healingPower,
+                            this.playerStats.maxHealth
+                        );
+                        
+                        // Update last heal time
+                        aura.setData('lastHealTime', currentTime);
+                        
+                        // Update health display
+                        this.events.emit('player-stats-changed');
+                        
+                        // Show subtle healing effect
+                        this.createSmallHealingEffect();
+                        
+                        // Show healing indicator
+                        this.showHealingIndicator(healingPower);
+                    }
+                }
+                
+                // Make the aura slightly visible when player is inside (debug/feedback)
+                const parentTree = aura.getData('parentTree');
+                if (parentTree && !parentTree.getData('auraVisible')) {
+                    // Create a subtle pulsing effect around the tree
+                    this.createHealingAuraEffect(parentTree);
+                    parentTree.setData('auraVisible', true);
+                }
+            } else {
+                // Player left the aura, reset visibility
+                const parentTree = aura.getData('parentTree');
+                if (parentTree) {
+                    parentTree.setData('auraVisible', false);
+                }
+            }
+        }
+        
+        // Update player's "in healing aura" status
+        this.player.setData('inHealingAura', isInAnyAura);
+        
+        // Show or hide the "Healing Spruce Aura" status effect
+        if (isInAnyAura) {
+            this.showHealingSpruceStatus();
+        } else {
+            this.hideHealingSpruceStatus();
+        }
+    }
+    
+    /**
+     * Create a small healing effect on the player
+     */
+    createSmallHealingEffect(): void {
+        // Create a small healing particle effect at the player's position
+        const particles = this.add.particles(this.player.x, this.player.y - 20, 'particle', {
+            speed: { min: 10, max: 30 },
+            angle: { min: 270, max: 360 },
+            scale: { start: 0.2, end: 0 },
+            blendMode: 'ADD',
+            lifespan: 500,
+            tint: [0x88ff88],
+            quantity: 3,
+            emitting: false
+        });
+        
+        // Emit a small burst of particles
+        particles.explode(3, this.player.x, this.player.y - 20);
+        
+        // Destroy the emitter after the particles are done
+        this.time.delayedCall(500, () => {
+            particles.destroy();
+        });
+    }
+    
+    /**
+     * Create a visual effect to show the healing aura around a tree
+     * @param tree The healing spruce tree
+     */
+    createHealingAuraEffect(tree: Phaser.GameObjects.GameObject): void {
+        // Get the tree as a sprite or image to access position properties
+        const treeObj = tree as Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+        
+        // Create a circle to represent the aura
+        const auraCircle = this.add.circle(treeObj.x, treeObj.y, 100, 0x00ff00, 0.05);
+        auraCircle.setDepth(treeObj.depth - 1); // Behind the tree
+        
+        // Store the circle on the tree
+        tree.setData('auraCircle', auraCircle);
+        
+        // Create a pulsing effect
+        this.tweens.add({
+            targets: auraCircle,
+            alpha: { from: 0.05, to: 0.15 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Clean up the aura effect when the player leaves
+        this.time.addEvent({
+            delay: 100, // Check frequently
+            callback: () => {
+                if (!tree.getData('auraVisible') && auraCircle && auraCircle.active) {
+                    // Player left the aura, destroy the visual effect
+                    auraCircle.destroy();
+                }
+            },
+            loop: true
+        });
     }
 
     /**
@@ -1084,12 +1240,21 @@ Gold: ${this.playerStats.gold}`;
         // Track gathered fruits
         const gatheredFruits: { [key: string]: number } = {};
         let totalFruits = 0;
+        let totalHealing = 0;
+        let hasHealingFruits = false;
         
         // Process each fruit with a slight delay between them
         let currentDelay = 0;
         fruitSprites.forEach((fruit, index) => {
             // Get fruit data
             const fruitFrame = fruit.getData('fruitFrame');
+            const healingPower = fruit.getData('healingPower') || 0;
+            const isHealingFruit = fruit.getData('fromHealingSpruce') || false;
+            
+            if (isHealingFruit) {
+                hasHealingFruits = true;
+                totalHealing += healingPower;
+            }
             
             // Determine which fruit item to add based on the frame
             let itemId;
@@ -1098,19 +1263,19 @@ Gold: ${this.playerStats.gold}`;
             switch (fruitFrame) {
                 case 0:
                     itemId = 'food_apple';
-                    fruitName = 'Apple';
+                    fruitName = isHealingFruit ? 'Healing Apple' : 'Apple';
                     break;
                 case 1:
                     itemId = 'food_orange';
-                    fruitName = 'Orange';
+                    fruitName = isHealingFruit ? 'Healing Orange' : 'Orange';
                     break;
                 case 3:
                     itemId = 'food_cherry';
-                    fruitName = 'Cherry';
+                    fruitName = isHealingFruit ? 'Healing Cherry' : 'Cherry';
                     break;
                 default:
                     itemId = 'food_apple'; // Default to apple
-                    fruitName = 'Fruit';
+                    fruitName = isHealingFruit ? 'Healing Fruit' : 'Fruit';
             }
             
             // Add to gathered count
@@ -1134,15 +1299,42 @@ Gold: ${this.playerStats.gold}`;
                     // Add the fruit to inventory
                     this.givePlayerItem(itemId, 1);
                     
-                    // Remove the fruit sprite
+                    // If this is a healing fruit, create a healing effect
+                    if (isHealingFruit && healingPower > 0) {
+                        // Create healing particles
+                        this.createHealingParticles(this.player.x, this.player.y);
+                    }
+                    
+                    // Remove the fruit sprite and its glow effect if it exists
+                    const glowEffect = fruit.getData('glowEffect');
+                    if (glowEffect) {
+                        glowEffect.destroy();
+                    }
                     fruit.destroy();
                     
-                    // If this is the last fruit, show the summary message
+                    // If this is the last fruit, show the summary message and apply healing
                     if (index === fruitSprites.length - 1) {
+                        // Apply healing if there were healing fruits
+                        if (hasHealingFruits && totalHealing > 0) {
+                            // Heal the player
+                            this.playerStats.health = Math.min(
+                                this.playerStats.health + totalHealing,
+                                this.playerStats.maxHealth
+                            );
+                            
+                            // Update health display
+                            this.events.emit('player-stats-changed');
+                        }
+                        
                         // Show success message after all fruits are gathered
                         let message = "You gathered:";
                         for (const [fruitName, count] of Object.entries(gatheredFruits)) {
                             message += `\n${count}x ${fruitName}`;
+                        }
+                        
+                        // Add healing message if applicable
+                        if (hasHealingFruits && totalHealing > 0) {
+                            message += `\n\nHealed for ${totalHealing} HP!`;
                         }
                         
                         // Display the message
@@ -1252,8 +1444,11 @@ Gold: ${this.playerStats.gold}`;
                 // Create wood particles effect
                 this.createWoodChipParticles(tree.x, tree.y);
                 
-                // Determine amount of wood to give (random between 1-3)
-                const woodAmount = Phaser.Math.Between(1, 3);
+                // Get the tree's wood amount data or use default values
+                const woodAmountData = tree.getData('woodAmount') || { min: 1, max: 3 };
+                
+                // Determine amount of wood to give based on tree type
+                const woodAmount = Phaser.Math.Between(woodAmountData.min, woodAmountData.max);
                 
                 // Add wood to inventory
                 const woodAdded = this.givePlayerItem('wood', woodAmount);
@@ -1261,7 +1456,8 @@ Gold: ${this.playerStats.gold}`;
                 // Show success message
                 let message;
                 if (woodAdded) {
-                    message = `You gathered ${woodAmount} wood!`;
+                    const treeName = tree.getData('treeName') || 'tree';
+                    message = `You gathered ${woodAmount} wood from the ${treeName}!`;
                     
                     // Add some XP for woodcutting
                     if (this.skillManager) {
@@ -1871,6 +2067,135 @@ Gold: ${this.playerStats.gold}`;
     }
 
     /**
+     * Create healing particles effect when consuming healing fruits
+     * @param x X coordinate for the particle effect
+     * @param y Y coordinate for the particle effect
+     */
+    createHealingParticles(x: number, y: number): void {
+        // Create healing particles (green sparkles)
+        const particles = this.add.particles(x, y, 'particle', {
+            speed: { min: 50, max: 100 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.6, end: 0 },
+            blendMode: 'ADD',
+            lifespan: 1000,
+            tint: [0x88ff88, 0x44ff44, 0x00ff00],
+            quantity: 20,
+            emitting: false
+        });
+        
+        // Emit particles in a burst
+        particles.explode(20, x, y);
+        
+        // Destroy the emitter after the particles are done
+        this.time.delayedCall(1000, () => {
+            particles.destroy();
+        });
+    }
+
+    /**
+     * Show a healing indicator when the player is healed
+     * @param amount Amount of healing applied
+     */
+    showHealingIndicator(amount: number): void {
+        // Create a floating text indicator
+        const healText = this.add.text(
+            this.player.x, 
+            this.player.y - 40, 
+            `+${amount} ❤️`, 
+            {
+                fontSize: '16px',
+                color: '#00ff00',
+                stroke: '#000000',
+                strokeThickness: 3
+            }
+        ).setOrigin(0.5);
+        
+        // Animate the text floating up and fading out
+        this.tweens.add({
+            targets: healText,
+            y: healText.y - 30,
+            alpha: 0,
+            duration: 1500,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                healText.destroy();
+            }
+        });
+    }
+
+    /**
+     * Show a status effect indicator for being in a Healing Spruce aura
+     */
+    showHealingSpruceStatus(): void {
+        // Check if status already exists
+        if (this.player.getData('healingSpruceStatus')) {
+            return;
+        }
+        
+        // Create a status effect icon near the player
+        const statusIcon = this.add.image(this.player.x, this.player.y - 50, 'particle')
+            .setTint(0x00ff00)
+            .setAlpha(0.8)
+            .setScale(0.5)
+            .setDepth(100);
+        
+        // Add a pulsing effect
+        this.tweens.add({
+            targets: statusIcon,
+            scale: { from: 0.5, to: 0.7 },
+            alpha: { from: 0.8, to: 0.6 },
+            duration: 1000,
+            yoyo: true,
+            repeat: -1
+        });
+        
+        // Create text label
+        const statusText = this.add.text(
+            statusIcon.x + 15, 
+            statusIcon.y, 
+            "Healing Aura", 
+            {
+                fontSize: '12px',
+                color: '#ffffff',
+                stroke: '#000000',
+                strokeThickness: 2
+            }
+        ).setOrigin(0, 0.5).setDepth(100);
+        
+        // Group the status elements
+        const statusGroup = this.add.container(0, 0, [statusIcon, statusText]);
+        
+        // Store the status on the player
+        this.player.setData('healingSpruceStatus', statusGroup);
+        
+        // Update the status position in the game loop
+        this.events.on('update', this.updateHealingSpruceStatus, this);
+    }
+    
+    /**
+     * Update the position of the healing spruce status effect
+     */
+    updateHealingSpruceStatus(): void {
+        const statusGroup = this.player.getData('healingSpruceStatus');
+        if (statusGroup && this.player) {
+            statusGroup.setPosition(this.player.x - 50, this.player.y - 50);
+        }
+    }
+    
+    /**
+     * Hide the Healing Spruce status effect
+     */
+    hideHealingSpruceStatus(): void {
+        const statusGroup = this.player.getData('healingSpruceStatus');
+        if (statusGroup) {
+            statusGroup.destroy();
+            this.player.setData('healingSpruceStatus', null);
+            this.events.off('update', this.updateHealingSpruceStatus, this);
+        }
+    }
+
+    /**
      * Clean up resources when the scene is shut down
      */
     private cleanupResources(): void {
@@ -1895,5 +2220,28 @@ Gold: ${this.playerStats.gold}`;
         this.events.off('flag-repaired');
         this.events.off('flag-hardened');
         this.events.off('flag-destroyed');
+        this.events.off('update', this.updateHealingSpruceStatus, this);
+        
+        // Clean up any healing aura effects
+        if (this.environmentSystem) {
+            const healingAuras = this.environmentSystem.getHealingAuras();
+            healingAuras.forEach(aura => {
+                const parentTree = aura.getData('parentTree');
+                if (parentTree) {
+                    const auraCircle = parentTree.getData('auraCircle');
+                    if (auraCircle) {
+                        auraCircle.destroy();
+                    }
+                }
+            });
+        }
+        
+        // Clean up healing status on player
+        if (this.player) {
+            const statusGroup = this.player.getData('healingSpruceStatus');
+            if (statusGroup) {
+                statusGroup.destroy();
+            }
+        }
     }
 }
