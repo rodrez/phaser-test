@@ -15,6 +15,7 @@ import { MonsterPopupSystem } from '../systems/monsters/MonsterPopupSystem';
 import { PopupSystem } from '../systems/PopupSystem';
 import { CombatSystem } from '../systems/Combat';
 import { EquipmentSystem } from '../systems/Equipment';
+import { Environment } from '../systems/environment/Environment';
 
 export class Game extends Scene {
     camera: Phaser.Cameras.Scene2D.Camera;
@@ -82,7 +83,7 @@ export class Game extends Scene {
     menuButton!: Phaser.GameObjects.Container;
 
     // Environment system
-    environmentSystem!: EnvironmentSystem;
+    environmentSystem!: Environment;
 
     // Item and inventory systems
     itemSystem!: ItemSystem;
@@ -181,8 +182,14 @@ export class Game extends Scene {
         // Set default map overlay opacity right away
         this.mapSystem.setOverlayOpacity(0.4);
         
+        // Initialize popup system (needs to be before environment system)
+        this.popupSystem = new PopupSystem(this, this.mapSystem);
+        
         // Initialize environment system
-        this.environmentSystem = new EnvironmentSystem(this);
+        this.environmentSystem = new Environment(this);
+        
+        // Connect popup system to environment system
+        this.environmentSystem.setPopupSystem(this.popupSystem);
         
         // Initialize item system
         this.itemSystem = new ItemSystem(this);
@@ -276,7 +283,6 @@ export class Game extends Scene {
         });
 
         // Initialize flag system
-        this.popupSystem = new PopupSystem(this, this.mapSystem);
         this.flagSystem = new FlagSystem(this, this.mapSystem, this.popupSystem);
 
         // Initialize skill system
@@ -366,11 +372,6 @@ export class Game extends Scene {
      */
     startGameplay() {
         // Player is already created and can move at this point
-        // No need to call enableMovement which doesn't exist
-
-        // Map environment creation
-        this.setupTreeInteractions();
-        this.setupFruitInteractions();
         
         // Generate environment elements
         this.generateEnvironment();
@@ -440,18 +441,10 @@ export class Game extends Scene {
         // Get the navigation radius
         const navigationRadius = this.mapSystem.navigationRadius;
         
-        // Clear any existing environment objects
-        this.environmentSystem.clearEnvironment();
+        // Generate environment using the new system
+        this.environmentSystem.generateEnvironment(centerX, centerY, navigationRadius);
         
-        // Add 3-12 trees within the navigation circle
-        this.environmentSystem.addTreesInCircle(
-            12, // Maximum number of trees (will randomly select 3-12)
-            centerX,
-            centerY,
-            navigationRadius * 0.8 // 80% of the radius to ensure trees stay well inside
-        );
-        
-        console.log(`Generated trees within navigation circle (radius: ${navigationRadius})`);
+        console.log(`Generated environment within navigation circle (radius: ${navigationRadius})`);
     }
 
     /**
@@ -2352,6 +2345,10 @@ Gold: ${this.playerStats.gold}`;
             this.popupSystem.destroy();
         }
         
+        if (this.environmentSystem) {
+            this.environmentSystem.destroy();
+        }
+        
         // Remove event listeners
         this.events.off('flag-placement-failed');
         this.events.off('flag-teleport');
@@ -2359,20 +2356,6 @@ Gold: ${this.playerStats.gold}`;
         this.events.off('flag-hardened');
         this.events.off('flag-destroyed');
         this.events.off('update', this.updateHealingSpruceStatus, this);
-        
-        // Clean up any healing aura effects
-        if (this.environmentSystem) {
-            const healingAuras = this.environmentSystem.getHealingAuras();
-            healingAuras.forEach(aura => {
-                const parentTree = aura.getData('parentTree');
-                if (parentTree) {
-                    const auraCircle = parentTree.getData('auraCircle');
-                    if (auraCircle) {
-                        auraCircle.destroy();
-                    }
-                }
-            });
-        }
         
         // Clean up healing status on player
         if (this.player) {

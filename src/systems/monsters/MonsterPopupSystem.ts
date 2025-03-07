@@ -85,8 +85,8 @@ export class MonsterPopupSystem {
                         </div>
                     </div>
                     <div class="popup-actions">
-                        <button class="popup-action-btn danger-btn" id="attack-monster-btn">Attack</button>
-                        <button class="popup-action-btn info-btn" id="monster-info-btn">More Info</button>
+                        <button class="action-btn attack-btn" id="attack-monster-btn">Attack</button>
+                        <button class="action-btn info-btn" id="monster-info-btn">More Info</button>
                     </div>
                 </div>
             `,

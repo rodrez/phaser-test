@@ -1,0 +1,298 @@
+/* Global styles for custom popups - Medieval RPG Theme */
+.custom-popup {
+    position: fixed !important;
+    background: #2a1a0a; /* Dark brown background */
+    color: #e8d4b9; /* Light parchment text color */
+    border-radius: 8px; /* Rounded corners */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    font-family: 'Cinzel', 'Times New Roman', serif; /* Medieval-style font */
+    z-index: 1000;
+    max-width: 90vw;
+    padding: 15px;
+    /* Ensure the popup captures all pointer events */
+    pointer-events: auto;
+    /* Add a subtle parchment texture */
+    background-image: url('data:image/png;base64,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');
+    /* Add a subtle inner glow */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(200, 161, 101, 0.2);
+    /* Add a decorative border */
+    border: 3px solid;
+    border-image: linear-gradient(to bottom, #c8a165, #8b5a2b) 1;
+}
+
+/* Ensure the popup container captures all events */
+.popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 999;
+    pointer-events: none;
+}
+
+.custom-popup h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-align: center;
+    color: #f0c070; /* Golden title */
+    border-bottom: 1px solid #8b5a2b;
+    padding-bottom: 8px;
+    font-size: 20px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
+    /* Add decorative elements to title */
+    position: relative;
+}
+
+.custom-popup h3:before,
+.custom-popup h3:after {
+    content: '❧';
+    color: #8b5a2b;
+    font-size: 16px;
+    position: absolute;
+    bottom: 5px;
+    opacity: 0.7;
+}
+
+.custom-popup h3:before {
+    left: 10px;
+}
+
+.custom-popup h3:after {
+    right: 10px;
+}
+
+.close-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    background: #8b5a2b;
+    color: #e8d4b9;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 22px;
+    cursor: pointer;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+    /* Ensure the close button captures all pointer events */
+    pointer-events: auto;
+}
+
+.close-button:hover {
+    background: #a06c3b;
+    transform: scale(1.1);
+}
+
+/* Common styles for all popup descriptions */
+.tree-description,
+.fruit-description,
+.flag-description,
+.monster-description {
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Common styles for all popup action containers */
+.tree-actions,
+.fruit-actions,
+.flag-actions,
+.monster-actions {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Action buttons */
+.action-btn {
+    background: #8b5a2b;
+    color: #e8d4b9;
+    border: 2px solid #c8a165; /* Golden border */
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 0 5px;
+    cursor: pointer;
+    font-family: 'Cinzel', 'Times New Roman', serif;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    /* Ensure buttons capture all pointer events */
+    pointer-events: auto;
+    /* Add texture and depth */
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.1) 100%);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    position: relative;
+    overflow: hidden;
+}
+
+.action-btn:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    opacity: 0.5;
+}
+
+.action-btn:hover {
+    background-color: #a06c3b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: #e0c088; /* Lighter golden border on hover */
+}
+
+.action-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Specific button styles */
+.info-btn {
+    background-color: #4b6584;
+    border-color: #7f97b5;
+}
+
+.info-btn:hover {
+    background-color: #5d7aa2;
+    border-color: #9fb5d1;
+}
+
+.danger-btn, .attack-btn {
+    background-color: #b33939;
+    border-color: #d66060;
+}
+
+.danger-btn:hover, .attack-btn:hover {
+    background-color: #d35454;
+    border-color: #e88383;
+}
+
+.success-btn, .gather-btn {
+    background-color: #218c74;
+    border-color: #4cb69e;
+}
+
+.success-btn:hover, .gather-btn:hover {
+    background-color: #29b393;
+    border-color: #6ad4b8;
+}
+
+.teleport-btn, .travel-btn {
+    background-color: #706fd3;
+    border-color: #9897e0;
+}
+
+.teleport-btn:hover, .travel-btn:hover {
+    background-color: #8f8fe0;
+    border-color: #b5b4ec;
+}
+
+.repair-btn {
+    background-color: #474787;
+    border-color: #6f6fb3;
+}
+
+.repair-btn:hover {
+    background-color: #5c5ca6;
+    border-color: #8a8ac6;
+}
+
+.harden-btn {
+    background-color: #227093;
+    border-color: #4a98bc;
+}
+
+.harden-btn:hover {
+    background-color: #2d8db3;
+    border-color: #6ab3d5;
+}
+
+/* Stats display for monsters and other entities */
+.stats-container {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    border-bottom: 1px dotted rgba(232, 212, 185, 0.3);
+    padding-bottom: 3px;
+}
+
+.stat-label {
+    font-weight: bold;
+    color: #f0c070;
+}
+
+.stat-value {
+    color: #e8d4b9;
+}
+
+/* Progress bar for health, etc. */
+.progress-bar {
+    height: 8px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 3px;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.health {
+    background-color: #27ae60;
+}
+
+.progress-fill.danger {
+    background-color: #c0392b;
+}
+
+/* Flag popup specific styles */
+.flag-popup .flag-icon {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+/* Monster popup specific styles */
+.monster-popup .monster-icon {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+.monster-level {
+    display: inline-block;
+    background-color: #8b5a2b;
+    color: #e8d4b9;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    text-align: center;
+    line-height: 24px;
+    margin-left: 8px;
+    font-size: 12px;
+    font-weight: bold;
+} 

@@ -687,23 +687,23 @@ export class FlagSystem {
                 </div>
                 
                 <div class="popup-actions">
-                    <button class="popup-action-btn primary-btn jump-to-flag" data-flag-id="${flag.id}">
+                    <button class="action-btn teleport-btn" data-flag-id="${flag.id}">
                         Jump to Flag
                     </button>
                     
                     ${canRepair ? `
-                    <button class="popup-action-btn secondary-btn repair-flag" data-flag-id="${flag.id}">
+                    <button class="action-btn repair-btn" data-flag-id="${flag.id}">
                         Repair Flag
                     </button>
                     ` : ''}
                     
                     ${!isHardened ? `
-                    <button class="popup-action-btn info-btn harden-flag" data-flag-id="${flag.id}">
+                    <button class="action-btn harden-btn" data-flag-id="${flag.id}">
                         Harden Flag
                     </button>
                     ` : ''}
                     
-                    <button class="popup-action-btn danger-btn destroy-flag" data-flag-id="${flag.id}">
+                    <button class="action-btn danger-btn" data-flag-id="${flag.id}">
                         Destroy Flag
                     </button>
                 </div>
