@@ -113,6 +113,9 @@ export class DOMUIHelper {
         
         // Add click handler with debugging
         button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            
             console.log(`[DOMUIHelper] Button clicked: "${text}"`);
             console.log('[DOMUIHelper] Event target:', event.target);
             onClick();

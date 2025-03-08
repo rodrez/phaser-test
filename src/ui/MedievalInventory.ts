@@ -132,6 +132,15 @@ export class MedievalInventory {
                 overflow: 'hidden'
             }
         );
+        
+        // Add event listeners to prevent clicks from passing through
+        const mouseEvents = ['click', 'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'contextmenu'];
+        for (const eventType of mouseEvents) {
+            this.container.addEventListener(eventType, (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+            });
+        }
     }
     
     /**
@@ -208,7 +217,8 @@ export class MedievalInventory {
         
         this.searchInput.type = 'text';
         this.searchInput.placeholder = 'Search items...';
-        this.searchInput.addEventListener('input', () => {
+        this.searchInput.addEventListener('input', (event) => {
+            event.stopPropagation();
             this.searchTerm = this.searchInput.value.toLowerCase();
             this.refresh();
         });
@@ -312,6 +322,15 @@ export class MedievalInventory {
                 gap: '5px'
             }
         );
+        
+        // Add event listeners to prevent clicks from passing through
+        const mouseEvents = ['click', 'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'contextmenu'];
+        for (const eventType of mouseEvents) {
+            this.itemsContainer.addEventListener(eventType, (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+            });
+        }
         
         this.container.appendChild(this.itemsContainer);
     }
@@ -493,16 +512,21 @@ export class MedievalInventory {
         );
         
         // Add hover effect
-        itemRow.addEventListener('mouseenter', () => {
-            itemRow.style.backgroundColor = 'rgba(139, 90, 43, 0.3)';
+        itemRow.addEventListener('mouseenter', (event) => {
+            event.stopPropagation();
+            itemRow.style.backgroundColor = 'rgba(50, 50, 50, 0.3)';
         });
         
-        itemRow.addEventListener('mouseleave', () => {
+        itemRow.addEventListener('mouseleave', (event) => {
+            event.stopPropagation();
             itemRow.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
         });
         
         // Add click handler to use/equip item
-        itemRow.addEventListener('click', () => {
+        itemRow.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            
             if (slots.length > 0) {
                 // Try to use or equip the item from the first slot
                 const slotIndex = slots[0];

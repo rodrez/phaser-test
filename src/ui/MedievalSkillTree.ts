@@ -1,5 +1,6 @@
 import type { Scene } from 'phaser';
 import { DOMUIHelper } from './DOMUIHelper';
+import { getHighestTier } from '../systems/skills/SkillData';
 
 // Define types for skill data
 interface Skill {
@@ -165,11 +166,21 @@ export class MedievalSkillTree {
      * Creates the main container
      */
     private createContainer(): void {
+        // Create the container
         this.container = this.uiHelper.createContainer('skill-tree-container');
+        this.container.classList.add('medieval-skill-tree');
         this.container.classList.add('hidden'); // Add hidden class by default
-        this.container.style.display = 'none'; // Hidden by default
         
-        // Apply essential styles directly
+        // Add event listeners to prevent clicks from passing through
+        const mouseEvents = ['click', 'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'contextmenu'];
+        for (const eventType of mouseEvents) {
+            this.container.addEventListener(eventType, (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+            });
+        }
+        
+        // Style the container
         Object.assign(this.container.style, {
             position: 'fixed',
             top: '50%',
@@ -231,7 +242,11 @@ export class MedievalSkillTree {
             padding: '0 5px'
         });
         
-        closeButton.addEventListener('click', () => this.hide());
+        closeButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            this.hide();
+        });
         
         header.appendChild(title);
         header.appendChild(closeButton);
@@ -324,22 +339,21 @@ export class MedievalSkillTree {
             transition: 'all 0.2s ease'
         });
         
-        button.addEventListener('click', () => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            
             // Remove active class from all buttons
             const buttons = this.categoryFilters.querySelectorAll('.filter-button');
             for (const btn of buttons) {
                 btn.classList.remove('active');
-                (btn as HTMLButtonElement).style.background = '#3c2815';
-                (btn as HTMLButtonElement).style.color = '#e8d4b9';
             }
             
-            // Add active class to clicked button
+            // Add active class to this button
             button.classList.add('active');
-            button.style.background = '#8b5a2b';
-            button.style.color = '#fff';
             
-            // Set active category and filter skills
-            this.activeCategory = category as SkillCategory | 'All';
+            // Update active category and filter skills
+            this.activeCategory = category === 'All' ? 'All' : category as SkillCategory;
             this.filterSkills();
         });
         
@@ -373,7 +387,10 @@ export class MedievalSkillTree {
             fontFamily: 'Cinzel, Times New Roman, serif'
         });
         
-        this.searchInput.addEventListener('input', () => this.filterSkills());
+        this.searchInput.addEventListener('input', (event) => {
+            event.stopPropagation();
+            this.filterSkills();
+        });
         
         searchContainer.appendChild(this.searchInput);
         this.container.appendChild(searchContainer);
@@ -643,6 +660,16 @@ export class MedievalSkillTree {
             tierGroups.get(skill.tier)?.push(skill);
         }
         
+        // Get the highest tier from SkillData
+        const highestTier = getHighestTier();
+        
+        // Create empty tier groups for any missing tiers up to the highest tier
+        for (let tier = 1; tier <= highestTier; tier++) {
+            if (!tierGroups.has(tier)) {
+                tierGroups.set(tier, []);
+            }
+        }
+        
         // Sort tiers
         const sortedTiers = Array.from(tierGroups.keys()).sort((a, b) => a - b);
         
@@ -663,22 +690,8 @@ export class MedievalSkillTree {
         // Create tier groups
         for (const tier of sortedTiers) {
             const tierSkills = tierGroups.get(tier) || [];
-            if (tierSkills.length === 0) continue;
             
-            const tierGroup = this.uiHelper.createElement<HTMLDivElement>('div', 'tier-group');
-            tierGroup.dataset.tier = tier.toString();
-            
-            // Create tier header
-            const tierHeader = this.uiHelper.createElement<HTMLDivElement>('div', 'tier-header');
-            tierHeader.textContent = `Tier ${tier}`;
-            
-            // Add locked indicator if tier is locked
-            if (tier > highestUnlockedTier + 1) {
-                tierHeader.textContent += ' (Locked)';
-                tierHeader.style.color = '#a89078';
-            }
-            
-            tierGroup.appendChild(tierHeader);
+            const tierGroup = this.createTierGroup(tier, tier > highestUnlockedTier + 1);
             
             // Create skills container with responsive grid
             const skillsContainer = this.uiHelper.createElement<HTMLDivElement>('div', 'skills-container');
@@ -722,7 +735,9 @@ export class MedievalSkillTree {
                 skillElementsById.set(skill.id, skillElement);
                 
                 // Add click handler
-                skillElement.addEventListener('click', () => {
+                skillElement.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
                     this.selectSkill(skill);
                 });
             }
@@ -740,6 +755,28 @@ export class MedievalSkillTree {
         if (this.selectedSkill) {
             this.updateSkillDetailsPanel();
         }
+    }
+    
+    /**
+     * Creates a tier group with a visual separator
+     */
+    private createTierGroup(tier: number, isLocked: boolean): HTMLDivElement {
+        const tierGroup = this.uiHelper.createElement<HTMLDivElement>('div', 'tier-group');
+        tierGroup.dataset.tier = tier.toString();
+        
+        // Create tier header
+        const tierHeader = this.uiHelper.createElement<HTMLDivElement>('div', 'tier-header');
+        tierHeader.textContent = `Tier ${tier}`;
+        
+        // Add locked indicator if tier is locked
+        if (isLocked) {
+            tierHeader.textContent += ' (Locked)';
+            tierHeader.style.color = '#a89078';
+        }
+        
+        tierGroup.appendChild(tierHeader);
+        
+        return tierGroup;
     }
     
     /**
@@ -1401,7 +1438,11 @@ export class MedievalSkillTree {
                 upgradeButton.style.background = '#6b8e23';
             });
             
-            upgradeButton.addEventListener('click', () => this.upgradeSkill(skill));
+            upgradeButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                this.upgradeSkill(skill);
+            });
             this.skillDetailsPanel.appendChild(upgradeButton);
         }
         
@@ -1740,6 +1781,8 @@ export class MedievalSkillTree {
      * Initialize the skill tree with data
      */
     public initialize(skills: Skill[], playerSkills: PlayerSkills): void {
+        console.log(`Initializing skill tree with ${skills.length} skills, highest tier: ${getHighestTier()}`);
+        
         this.skills = skills;
         this.playerSkills = playerSkills;
         
@@ -1757,6 +1800,20 @@ export class MedievalSkillTree {
      * Loads skill data
      */
     public loadSkills(skills: Skill[]): void {
+        console.log(`Loading ${skills.length} skills, highest tier: ${getHighestTier()}`);
+        
+        // Group skills by tier for logging
+        const tierCounts = new Map<number, number>();
+        for (const skill of skills) {
+            tierCounts.set(skill.tier, (tierCounts.get(skill.tier) || 0) + 1);
+        }
+        
+        // Log the number of skills in each tier
+        console.log('Skills by tier:');
+        for (const [tier, count] of tierCounts.entries()) {
+            console.log(`Tier ${tier}: ${count} skills`);
+        }
+        
         this.skills = skills;
         this.filterSkills();
     }

@@ -1,5 +1,5 @@
-import { Scene } from 'phaser';
-import { MapSystem } from './Map';
+import type { Scene } from 'phaser';
+import type { MapSystem } from './Map';
 import '../styles/popups.css';
 
 /**
@@ -155,24 +155,26 @@ export class PopupSystem {
             
             // Prevent all mouse events from propagating through the popup
             const mouseEvents = ['click', 'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'contextmenu'];
-            mouseEvents.forEach(eventType => {
+            for (const eventType of mouseEvents) {
                 customPopup.addEventListener(eventType, (event) => {
                     event.stopPropagation();
+                    event.preventDefault();
                 });
-            });
+            }
             
             // Register event handlers for buttons
             if (content.buttons) {
-                content.buttons.forEach(button => {
+                for (const button of content.buttons) {
                     const elements = customPopup.querySelectorAll(button.selector);
-                    elements.forEach(element => {
+                    for (const element of elements) {
                         element.addEventListener('click', (event) => {
                             // Prevent event from propagating to elements behind the popup
                             event.stopPropagation();
+                            event.preventDefault();
                             button.onClick();
                         });
-                    });
-                });
+                    }
+                }
             }
             
             // Add a subtle entrance animation
@@ -266,24 +268,26 @@ export class PopupSystem {
             
             // Prevent all mouse events from propagating through the popup
             const mouseEvents = ['click', 'mousedown', 'mouseup', 'mousemove', 'mouseover', 'mouseout', 'mouseenter', 'mouseleave', 'contextmenu'];
-            mouseEvents.forEach(eventType => {
+            for (const eventType of mouseEvents) {
                 customPopup.addEventListener(eventType, (event) => {
                     event.stopPropagation();
+                    event.preventDefault();
                 });
-            });
+            }
             
             // Register event handlers for buttons
             if (content.buttons) {
-                content.buttons.forEach(button => {
+                for (const button of content.buttons) {
                     const elements = customPopup.querySelectorAll(button.selector);
-                    elements.forEach(element => {
+                    for (const element of elements) {
                         element.addEventListener('click', (event) => {
                             // Prevent event from propagating to elements behind the popup
                             event.stopPropagation();
+                            event.preventDefault();
                             button.onClick();
                         });
-                    });
-                });
+                    }
+                }
             }
             
             // Add a subtle entrance animation
@@ -325,21 +329,23 @@ export class PopupSystem {
             
             // Register event handlers for buttons
             if (content.buttons) {
-                content.buttons.forEach(button => {
+                for (const button of content.buttons) {
                     const elements = popup.querySelectorAll(button.selector);
-                    elements.forEach(element => {
+                    for (const element of elements) {
                         element.addEventListener('click', (event) => {
                             // Prevent event from propagating to elements behind the popup
                             event.stopPropagation();
+                            event.preventDefault();
                             button.onClick();
                         });
-                    });
-                });
+                    }
+                }
             }
             
             // Ensure popup clicks don't propagate to elements behind it
             popup.addEventListener('click', (event) => {
                 event.stopPropagation();
+                event.preventDefault();
             });
         } catch (error) {
             console.error('Error updating popup content:', error);
@@ -385,9 +391,9 @@ export class PopupSystem {
             });
             
             // Close each popup
-            popupsToClose.forEach(popup => {
+            for (const popup of popupsToClose) {
                 this.closePopup(popup);
-            });
+            }
         } catch (error) {
             console.error('Error closing popups by class:', error);
         }
@@ -402,12 +408,19 @@ export class PopupSystem {
             const popupsToClose = [...this.activePopups];
             
             // Close each popup
-            popupsToClose.forEach(popup => {
+            for (const popup of popupsToClose) {
                 this.closePopup(popup);
-            });
+            }
         } catch (error) {
             console.error('Error closing all popups:', error);
         }
+    }
+    
+    /**
+     * Check if any popup is currently open
+     */
+    isAnyPopupOpen(): boolean {
+        return this.activePopups.length > 0;
     }
     
     /**

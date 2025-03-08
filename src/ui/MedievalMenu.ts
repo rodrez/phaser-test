@@ -10,6 +10,9 @@ export interface MedievalMenuOptions {
     showIcons?: boolean;
     width?: string;
     iconSize?: string;
+    menuButtonIcon?: string;
+    menuButtonSize?: string;
+    menuButtonText?: string;
 }
 
 /**
@@ -33,6 +36,7 @@ export class MedievalMenu {
     
     // DOM Elements
     private container: HTMLDivElement;
+    private menuButton: HTMLDivElement;
     private menuItems: Map<string, HTMLDivElement> = new Map();
     private activeItem: string | null = null;
     
@@ -51,17 +55,91 @@ export class MedievalMenu {
             orientation: options.orientation || 'vertical',
             showIcons: options.showIcons !== undefined ? options.showIcons : true,
             width: options.width || '80px',
-            iconSize: options.iconSize || '32px'
+            iconSize: options.iconSize || '32px',
+            menuButtonIcon: options.menuButtonIcon || '☰',
+            menuButtonSize: options.menuButtonSize || '36px',
+            menuButtonText: options.menuButtonText || 'Menu'
         };
         
         // Load the CSS files
         this.uiHelper.loadCSS('/styles/medieval-menu.css');
+        
+        // Create the menu button first (always visible)
+        this.createMenuButton();
         
         // Create the main container
         this.createContainer();
         
         // Add default menu items
         this.addDefaultMenuItems();
+    }
+    
+    /**
+     * Creates the menu button that's always visible
+     */
+    private createMenuButton(): void {
+        this.menuButton = this.uiHelper.createElement<HTMLDivElement>('div', 'medieval-menu-button');
+        
+        // Apply styles
+        const styles: Partial<CSSStyleDeclaration> = {
+            position: 'fixed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(30, 30, 30, 0.8)',
+            border: '2px solid #8b7250',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            zIndex: '1001',
+            boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+            bottom: '20px',
+            right: '20px',
+            fontSize: '16px',
+            fontFamily: 'serif',
+            fontWeight: 'bold',
+            color: '#d4b483'
+        };
+        
+        Object.assign(this.menuButton.style, styles);
+        
+        // Create icon and text container
+        const iconContainer = this.uiHelper.createElement<HTMLSpanElement>('span', 'menu-button-icon');
+        iconContainer.textContent = this.options.menuButtonIcon;
+        iconContainer.style.marginRight = '8px';
+        iconContainer.style.fontSize = '18px';
+        
+        const textContainer = this.uiHelper.createElement<HTMLSpanElement>('span', 'menu-button-text');
+        textContainer.textContent = this.options.menuButtonText;
+        
+        // Add icon and text to button
+        this.menuButton.appendChild(iconContainer);
+        this.menuButton.appendChild(textContainer);
+        
+        // Add click handler to toggle menu
+        this.menuButton.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            
+            console.log('[MedievalMenu] Menu button clicked');
+            this.toggle();
+        });
+        
+        // Add hover effects
+        this.menuButton.addEventListener('mouseenter', () => {
+            this.menuButton.style.backgroundColor = 'rgba(139, 114, 80, 0.5)';
+            this.menuButton.style.transform = 'scale(1.05)';
+        });
+        
+        this.menuButton.addEventListener('mouseleave', () => {
+            if (!this.isVisible) {
+                this.menuButton.style.backgroundColor = 'rgba(30, 30, 30, 0.8)';
+            }
+            this.menuButton.style.transform = 'scale(1)';
+        });
+        
+        // Add to the DOM
+        document.body.appendChild(this.menuButton);
     }
     
     /**
@@ -76,7 +154,7 @@ export class MedievalMenu {
         
         // Apply styles based on position and orientation
         const styles: Partial<CSSStyleDeclaration> = {
-            position: 'absolute',
+            position: 'fixed',
             display: 'flex',
             flexDirection: orientation === 'vertical' ? 'column' : 'row',
             background: 'rgba(30, 30, 30, 0.8)',
@@ -84,27 +162,10 @@ export class MedievalMenu {
             borderRadius: '8px',
             padding: '10px',
             boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
-            zIndex: '1000'
+            zIndex: '1000',
+            bottom: '70px',
+            right: '20px'
         };
-        
-        // Position the menu
-        if (position === 'left') {
-            styles.left = '20px';
-            styles.top = '50%';
-            styles.transform = 'translateY(-50%)';
-        } else if (position === 'right') {
-            styles.right = '20px';
-            styles.top = '50%';
-            styles.transform = 'translateY(-50%)';
-        } else if (position === 'top') {
-            styles.top = '20px';
-            styles.left = '50%';
-            styles.transform = 'translateX(-50%)';
-        } else if (position === 'bottom') {
-            styles.bottom = '20px';
-            styles.left = '50%';
-            styles.transform = 'translateX(-50%)';
-        }
         
         // Apply width
         if (orientation === 'vertical') {
@@ -204,9 +265,12 @@ export class MedievalMenu {
         
         // Add click handler with detailed logging
         menuItem.addEventListener('click', (event) => {
+            event.stopPropagation();
+            event.preventDefault();
+            
             console.log(`[MedievalMenu] Menu item clicked: ${id}`);
-            console.log(`[MedievalMenu] Event target:`, event.target);
-            console.log(`[MedievalMenu] onClick handler exists:`, !!onClick);
+            console.log("[MedievalMenu] Event target:", event.target);
+            console.log("[MedievalMenu] onClick handler exists:", !!onClick);
             
             // Set this item as active
             this.setActiveItem(id);
@@ -361,8 +425,11 @@ export class MedievalMenu {
                 
                 // Add the new click handler
                 newMenuItem.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    
                     console.log(`[MedievalMenu] Menu item clicked (updated handler): ${id}`);
-                    console.log(`[MedievalMenu] Event target:`, event.target);
+                    console.log("[MedievalMenu] Event target:", event.target);
                     this.setActiveItem(id);
                     console.log(`[MedievalMenu] Executing updated onClick handler for: ${id}`);
                     handler();
@@ -401,6 +468,10 @@ export class MedievalMenu {
             console.log('[MedievalMenu] Setting display to flex');
             this.container.style.display = 'flex';
             this.isVisible = true;
+            
+            // Update menu button appearance
+            this.menuButton.style.backgroundColor = 'rgba(139, 114, 80, 0.5)';
+            
             console.log('[MedievalMenu] Menu is now visible');
         } else {
             console.log('[MedievalMenu] Menu is already visible, no action taken');
@@ -416,6 +487,10 @@ export class MedievalMenu {
             console.log('[MedievalMenu] Setting display to none');
             this.container.style.display = 'none';
             this.isVisible = false;
+            
+            // Update menu button appearance
+            this.menuButton.style.backgroundColor = 'rgba(30, 30, 30, 0.8)';
+            
             console.log('[MedievalMenu] Menu is now hidden');
         } else {
             console.log('[MedievalMenu] Menu is already hidden, no action taken');
@@ -441,8 +516,14 @@ export class MedievalMenu {
      * Destroys the menu and removes it from the DOM
      */
     public destroy(): void {
+        // Remove the menu container
         if (this.container?.parentNode) {
             this.container.parentNode.removeChild(this.container);
+        }
+        
+        // Remove the menu button
+        if (this.menuButton?.parentNode) {
+            this.menuButton.parentNode.removeChild(this.menuButton);
         }
     }
 } 

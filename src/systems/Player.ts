@@ -1,7 +1,8 @@
 import { Scene } from 'phaser';
 import { EquipmentSlot, InventorySystem } from './Inventory';
-import { ArmorItem, ArmorType, WeaponItem, WeaponType } from './Item';
+import { ArmorItem,  WeaponItem} from './Item';
 import { EquipmentSystem } from './Equipment';
+import { PopupSystem, PopupOptions, PopupContent } from './PopupSystem';
 
 export class PlayerSystem {
     // Reference to the main game scene
@@ -900,5 +901,114 @@ export class PlayerSystem {
             this.targetIndicator.lineStyle(2, 0xff0000, 1);
             this.targetIndicator.strokeCircle(this.currentTarget.x, this.currentTarget.y, this.currentTarget.width / 2 + 5);
         }
+    }
+
+    /**
+     * Shows the player context menu
+     */
+    showContextMenu(): void {
+        console.log('Showing player context menu');
+        
+        // Get the game scene with access to game-specific methods and properties
+        interface GameScene {
+            canLevelUp: () => boolean;
+            playerStats: {
+                godMode: boolean;
+            };
+            showPlayerStats: () => void;
+            openInventory: () => void;
+            placePlayerFlag: () => void;
+            toggleGodMode: () => void;
+            popupSystem: PopupSystem;
+        }
+        
+        // Cast to unknown first, then to GameScene to avoid type error
+        const gameScene = (this.scene as unknown) as GameScene;
+        
+        // Get player position on screen
+        const worldPoint = { x: this.player.x, y: this.player.y };
+
+        // Convert world coordinates to screen coordinates
+        // Use the camera's worldView property to calculate screen coordinates
+        const camera = this.scene.cameras.main;
+        const screenPoint = {
+            x: worldPoint.x - camera.worldView.x,
+            y: worldPoint.y - camera.worldView.y
+        };
+        
+        // Create HTML content for the popup
+        const content: PopupContent = {
+            html: `
+                <div class="player-menu">
+                    <h3>Player Menu</h3>
+                    <div class="menu-buttons">
+                        <button class="menu-button" id="view-stats"><i class="icon-stats"></i> View Player Stats</button>
+                        <button class="menu-button" id="open-inventory"><i class="icon-inventory"></i> Open Inventory</button>
+                        <button class="menu-button" id="place-flag"><i class="icon-flag"></i> Place Flag</button>
+                        ${gameScene.canLevelUp() ? '<button class="menu-button" id="level-up"><i class="icon-levelup"></i> Level Up</button>' : ''}
+                        <button class="menu-button" id="toggle-god-mode"><i class="icon-shield"></i> ${gameScene.playerStats.godMode ? 'Disable God Mode' : 'Enable God Mode'}</button>
+                    </div>
+                </div>
+            `,
+            buttons: [
+                {
+                    selector: '#view-stats',
+                    onClick: () => {
+                        console.log('Viewing player stats');
+                        gameScene.showPlayerStats();
+                        gameScene.popupSystem.closePopupsByClass('player-menu-popup');
+                    }
+                },
+                {
+                    selector: '#open-inventory',
+                    onClick: () => {
+                        console.log('Opening inventory');
+                        gameScene.openInventory();
+                        gameScene.popupSystem.closePopupsByClass('player-menu-popup');
+                    }
+                },
+                {
+                    selector: '#place-flag',
+                    onClick: () => {
+                        console.log('Placing flag at player position');
+                        gameScene.placePlayerFlag();
+                        gameScene.popupSystem.closePopupsByClass('player-menu-popup');
+                    }
+                },
+                {
+                    selector: '#level-up',
+                    onClick: () => {
+                        console.log('Opening level up screen');
+                        // Add level up logic here
+                        gameScene.popupSystem.closePopupsByClass('player-menu-popup');
+                    }
+                },
+                {
+                    selector: '#toggle-god-mode',
+                    onClick: () => {
+                        console.log('Toggling god mode');
+                        gameScene.toggleGodMode();
+                        gameScene.popupSystem.closePopupsByClass('player-menu-popup');
+                    }
+                }
+            ]
+        };
+        
+        // Create popup options
+        const options: PopupOptions = {
+            className: 'player-menu-popup',
+            closeButton: true,
+            offset: { x: 0, y: -50 }, // Position above the player
+            width: 250,
+            zIndex: 100000 // Ensure it's on top of everything
+        };
+        
+        // Create the popup at the player's position
+        gameScene.popupSystem.createPopupAtScreenPosition(
+            screenPoint.x, 
+            screenPoint.y, 
+            content, 
+            options
+        );
     }
 }

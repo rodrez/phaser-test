@@ -843,4 +843,45 @@ export class TreeSystem {
     destroy(): void {
         this.scene.events.off('tree-interact');
     }
+
+    /**
+     * Show a visual effect for a healing aura around a tree
+     * @param tree The tree with the healing aura
+     */
+    showHealingAuraEffect(tree: Phaser.GameObjects.GameObject): void {
+        // Get the tree as a sprite or image to access position properties
+        const treeObj = tree as Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+        
+        // Create a subtle green circle around the tree
+        const auraCircle = this.scene.add.circle(treeObj.x, treeObj.y, 100, 0x00ff00, 0.05);
+        auraCircle.setDepth(treeObj.depth - 1); // Behind the tree
+        
+        // Store the circle on the tree
+        tree.setData('auraCircle', auraCircle);
+        
+        // Create a pulsing effect
+        this.scene.tweens.add({
+            targets: auraCircle,
+            alpha: 0.15,
+            scale: 1.1,
+            duration: 1000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Auto-hide after 5 seconds if player leaves the area
+        this.scene.time.delayedCall(5000, () => {
+            if (!tree.getData('auraVisible') && auraCircle && auraCircle.active) {
+                this.scene.tweens.add({
+                    targets: auraCircle,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => {
+                        auraCircle.destroy();
+                    }
+                });
+            }
+        });
+    }
 } 

@@ -21,6 +21,9 @@ export interface FlagData {
     health?: number;
     // Add hardened status for harden functionality
     hardened?: boolean;
+    // Store screen coordinates for player flags
+    screenX?: number;
+    screenY?: number;
 }
 
 export class FlagSystem {
@@ -43,6 +46,12 @@ export class FlagSystem {
         this.scene = scene;
         this.mapSystem = mapSystem;
         this.popupSystem = popupSystem;
+        
+        // Create custom panes for flag elements
+        this.createCustomPanes();
+        
+        // Listen for map resize events to update flag positions
+        this.scene.events.on('map-resized', this.updateAllFlagPositions, this);
         
         // Add custom CSS for flag circles
         const flagCircleStyle = document.createElement('style');
@@ -165,15 +174,48 @@ export class FlagSystem {
     }
     
     /**
-     * Create a new flag at the specified position
+     * Create custom panes for flag elements
+     */
+    private createCustomPanes(): void {
+        // Wait for the map to be initialized
+        this.scene.events.once('map-ready', () => {
+            if (this.mapSystem.leafletMap) {
+                // Create a custom pane for flag circles with lower z-index
+                this.mapSystem.leafletMap.createPane('flagCirclePane');
+                const circlePane = this.mapSystem.leafletMap.getPane('flagCirclePane');
+                if (circlePane) {
+                    circlePane.style.zIndex = '400'; // Below markers but above tiles
+                }
+                
+                // Create a custom pane for flag markers with higher z-index
+                this.mapSystem.leafletMap.createPane('flagMarkerPane');
+                const markerPane = this.mapSystem.leafletMap.getPane('flagMarkerPane');
+                if (markerPane) {
+                    markerPane.style.zIndex = '600'; // Above most elements
+                }
+                
+                console.log('🚩 Created custom panes for flag elements');
+            }
+        });
+    }
+    
+    /**
+     * Create a new flag at the specified location
+     * @param lat Latitude
+     * @param lon Longitude
+     * @param isPlayerFlag Whether this is a player-owned flag
+     * @param name Optional name for the flag
+     * @param screenX Optional screen X coordinate (for player flags)
+     * @param screenY Optional screen Y coordinate (for player flags)
      * @returns The flag ID if successful, null if placement is invalid
      */
-    createFlag(lat: number, lon: number, isPlayerFlag: boolean = false, name?: string): string | null {
+    createFlag(lat: number, lon: number, isPlayerFlag: boolean = false, name?: string, screenX?: number, screenY?: number): string | null {
         // Log the flag creation attempt
         console.log(`Attempting to create ${isPlayerFlag ? 'player' : 'environment'} flag at:`, {
             lat, 
             lon,
-            isPlayerFlag
+            isPlayerFlag,
+            screenCoords: screenX !== undefined && screenY !== undefined ? { x: screenX, y: screenY } : 'Not provided'
         });
         
         // For player flags, we'll be more lenient with boundary checks
@@ -219,7 +261,10 @@ export class FlagSystem {
             creationDate: new Date(),
             // Initialize health and hardened status
             health: 100,
-            hardened: false
+            hardened: false,
+            // Store screen coordinates for player flags
+            screenX: isPlayerFlag ? screenX : undefined,
+            screenY: isPlayerFlag ? screenY : undefined
         };
         
         this.flags.set(flagId, newFlag);
@@ -459,32 +504,40 @@ export class FlagSystem {
         const flagColor = flag.isPlayerFlag ? '#ff5500' : '#2266ff';
         
         // Create a flag icon using Leaflet's divIcon with a more interactive appearance
+        // Redesigned to ensure the flag pole is centered
         const flagIcon = L.divIcon({
             className: flag.isPlayerFlag ? 'player-flag-marker' : 'flag-marker',
             html: `
                 <div style="
-                    color: ${flagColor}; 
-                    font-size: 24px;
-                    text-align: center;
                     position: relative;
+                    width: 24px;
+                    height: 24px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: flex-end;
                 ">
+                    <!-- Flag emoji with adjusted position to center the pole -->
+                    <div style="
+                        color: ${flagColor}; 
+                        font-size: 24px;
+                        position: absolute;
+                        bottom: 0;
+                        transform: translateX(-4px);
+                    ">🚩</div>
+                    
+                    <!-- Vertical line representing the flag pole -->
                     <div style="
                         position: absolute;
-                        bottom: -5px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        width: 10px;
-                        height: 10px;
-                        background-color: rgba(255, 255, 255, 0.7);
-                        border-radius: 50%;
-                        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-                        opacity: 0.8;
+                        width: 2px;
+                        height: 12px;
+                        background-color: ${flagColor};
+                        bottom: 0;
+                        z-index: 1;
                     "></div>
-                    🚩
                 </div>
             `,
             iconSize: [24, 24],
-            iconAnchor: [12, 24] // Bottom center of the icon is the exact flag position
+            iconAnchor: [12, 24] // Bottom center of the icon
         });
         
         console.log(`Adding flag marker at [${flag.lat}, ${flag.lon}]`);
@@ -539,8 +592,42 @@ export class FlagSystem {
                         
                         // Position the clone at the exact same position as the original marker
                         clone.style.position = 'absolute';
-                        clone.style.left = `${markerPos.x - 12}px`; // Adjust for icon anchor (half of iconSize width)
-                        clone.style.top = `${markerPos.y - 24}px`; // Adjust for icon anchor (full iconSize height)
+                        
+                        // Update the clone's position for player flags
+                        if (flag.isPlayerFlag) {
+                            // Use stored screen coordinates if available
+                            if (flag.screenX !== undefined && flag.screenY !== undefined) {
+                                // Position directly using stored screen coordinates
+                                clone.style.left = `${flag.screenX - 12}px`; // Center horizontally
+                                clone.style.top = `${flag.screenY}px`; // At player's feet
+                                
+                                console.log('🎯 Updated player flag using stored screen coordinates:', { 
+                                    x: flag.screenX, 
+                                    y: flag.screenY 
+                                });
+                            } else {
+                                const gameScene = this.scene as any;
+                                const playerX = gameScene.player?.x;
+                                const playerY = gameScene.player?.y;
+                                
+                                if (playerX !== undefined && playerY !== undefined) {
+                                    // Position directly under the player
+                                    clone.style.left = `${playerX - 12}px`; // Center horizontally
+                                    clone.style.top = `${playerY}px`; // At player's feet
+                                    
+                                    console.log('🎯 Updated player flag position to player location:', { x: playerX, y: playerY });
+                                } else {
+                                    // Fallback to map coordinates
+                                    clone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                                    clone.style.top = `${markerPos.y}px`; // No vertical offset
+                                }
+                            }
+                        } else {
+                            // Standard positioning for non-player flags
+                            clone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                            clone.style.top = `${markerPos.y}px`; // No vertical offset
+                        }
+                        
                         clone.style.zIndex = '1000';
                         clone.style.transform = 'none'; // Prevent any transform that might shift position
                         
@@ -608,14 +695,14 @@ export class FlagSystem {
             html: this.createFlagContextMenu(flag),
             buttons: [
                 {
-                    selector: '.jump-to-flag',
+                    selector: '.teleport-btn',
                     onClick: () => {
                         this.jumpToFlag(flag.id);
                         this.popupSystem.closePopupsByClass('flag-popup');
                     }
                 },
                 {
-                    selector: '.destroy-flag',
+                    selector: '.danger-btn',
                     onClick: () => {
                         if (confirm(`Are you sure you want to destroy "${flag.name}"?`)) {
                             this.removeFlag(flag.id);
@@ -625,7 +712,7 @@ export class FlagSystem {
                     }
                 },
                 {
-                    selector: '.repair-flag',
+                    selector: '.repair-btn',
                     onClick: () => {
                         this.repairFlag(flag.id);
                         // Update the popup content to reflect repairs
@@ -633,7 +720,7 @@ export class FlagSystem {
                     }
                 },
                 {
-                    selector: '.harden-flag',
+                    selector: '.harden-btn',
                     onClick: () => {
                         this.hardenFlag(flag.id);
                         // Update the popup content
@@ -823,21 +910,34 @@ export class FlagSystem {
             
             // Merge the circles using union operations
             let mergedGeometry;
+            let unionFailed = false;
             
             try {
                 // Try to use the union operation
                 let merged = circleFeatures[0];
                 for (let i = 1; i < circleFeatures.length; i++) {
-                    const result = turf.union(merged, circleFeatures[i]);
-                    if (result) {
-                        merged = result;
+                    try {
+                        const result = turf.union(merged, circleFeatures[i]);
+                        if (result) {
+                            merged = result;
+                        }
+                    } catch (unionError) {
+                        console.warn(`Union operation failed for circle ${i}:`, unionError);
+                        // Continue with the current merged result
+                        unionFailed = true;
                     }
                 }
                 mergedGeometry = merged;
             } catch (e) {
                 console.warn('Advanced union failed, using simpler approach', e);
-                // Fallback to a simpler approach - just use the feature collection
-                mergedGeometry = featureCollection;
+                unionFailed = true;
+                // Don't return early, continue with individual circles display
+            }
+            
+            if (unionFailed) {
+                // Display individual circles if any union operation failed
+                this.displayIndividualCircles();
+                return;
             }
             
             // Create a new GeoJSON layer with the merged polygon
@@ -993,9 +1093,40 @@ export class FlagSystem {
                 // Get the new screen coordinates
                 const markerPos = this.mapSystem.geoToScreenCoordinates(lat, lon);
                 if (markerPos) {
-                    // Update the clone's position
-                    marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Adjust for icon anchor
-                    marker._interactionClone.style.top = `${markerPos.y - 24}px`; // Adjust for icon anchor
+                    // Update the clone's position for player flags
+                    if (flag.isPlayerFlag) {
+                        // Use stored screen coordinates if available
+                        if (flag.screenX !== undefined && flag.screenY !== undefined) {
+                            // Position directly using stored screen coordinates
+                            marker._interactionClone.style.left = `${flag.screenX - 12}px`; // Center horizontally
+                            marker._interactionClone.style.top = `${flag.screenY}px`; // At player's feet
+                            
+                            console.log('🎯 Updated player flag using stored screen coordinates:', { 
+                                x: flag.screenX, 
+                                y: flag.screenY 
+                            });
+                        } else {
+                            const gameScene = this.scene as any;
+                            const playerX = gameScene.player?.x;
+                            const playerY = gameScene.player?.y;
+                            
+                            if (playerX !== undefined && playerY !== undefined) {
+                                // Position directly under the player
+                                marker._interactionClone.style.left = `${playerX - 12}px`; // Center horizontally
+                                marker._interactionClone.style.top = `${playerY}px`; // At player's feet
+                                
+                                console.log('🎯 Updated player flag position to player location:', { x: playerX, y: playerY });
+                            } else {
+                                // Fallback to map coordinates
+                                marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                                marker._interactionClone.style.top = `${markerPos.y}px`; // No vertical offset
+                            }
+                        }
+                    } else {
+                        // Standard positioning for non-player flags
+                        marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                        marker._interactionClone.style.top = `${markerPos.y}px`; // No vertical offset
+                    }
                 } else {
                     // If we can't get screen coordinates, remove the old clone
                     try {
@@ -1023,5 +1154,53 @@ export class FlagSystem {
         });
         
         return true;
+    }
+    
+    /**
+     * Update all flag positions after a map resize
+     */
+    private updateAllFlagPositions(): void {
+        console.log('🔄 Updating all flag positions after map resize');
+        
+        // Update each flag's visual position
+        for (const [flagId, flag] of this.flags.entries()) {
+            const marker = this.flagMarkers.get(flagId);
+            if (marker && marker._interactionClone && this.mapSystem.interactionElement) {
+                // Get the new screen coordinates
+                const markerPos = this.mapSystem.geoToScreenCoordinates(flag.lat, flag.lon);
+                if (markerPos) {
+                    // Update the clone's position for player flags
+                    if (flag.isPlayerFlag) {
+                        // Use stored screen coordinates if available
+                        if (flag.screenX !== undefined && flag.screenY !== undefined) {
+                            // Position directly using stored screen coordinates
+                            marker._interactionClone.style.left = `${flag.screenX - 12}px`; // Center horizontally
+                            marker._interactionClone.style.top = `${flag.screenY}px`; // At player's feet
+                        } else {
+                            const gameScene = this.scene as any;
+                            const playerX = gameScene.player?.x;
+                            const playerY = gameScene.player?.y;
+                            
+                            if (playerX !== undefined && playerY !== undefined) {
+                                // Position directly under the player
+                                marker._interactionClone.style.left = `${playerX - 12}px`; // Center horizontally
+                                marker._interactionClone.style.top = `${playerY}px`; // At player's feet
+                            } else {
+                                // Fallback to map coordinates
+                                marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                                marker._interactionClone.style.top = `${markerPos.y}px`; // No vertical offset
+                            }
+                        }
+                    } else {
+                        // Standard positioning for non-player flags
+                        marker._interactionClone.style.left = `${markerPos.x - 12}px`; // Center horizontally
+                        marker._interactionClone.style.top = `${markerPos.y}px`; // No vertical offset
+                    }
+                }
+            }
+        }
+        
+        // Update the merged flag circles
+        this.updateMergedFlagCircles();
     }
 }

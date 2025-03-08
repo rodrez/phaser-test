@@ -3,6 +3,7 @@ import { PlayerSystem } from './Player';
 import { BaseMonster } from './monsters/BaseMonster';
 import { Monster } from './Monster';
 import { ItemType, WeaponItem } from './Item';
+import { SkillEffectSystem } from './skills/SkillEffectSystem';
 
 // Types of damage that can be dealt
 export enum DamageType {
@@ -20,26 +21,51 @@ export interface DamageInfo {
     amount: number;
     type: DamageType;
     isCritical?: boolean;
-    source?: any; // The entity that caused the damage
+    source?: unknown; // The entity that caused the damage
     sourceType?: 'player' | 'monster' | 'environment' | 'trap';
 }
 
 // Interface for combat events
-export interface CombatEvent {
-    type: 'damage' | 'heal' | 'death' | 'attack' | 'defend' | 'dodge';
-    target: any; // The entity affected by the event
-    data: any; // Additional data about the event
+interface CombatEvent {
+    type: string;
+    target: unknown;
+    data: unknown;
 }
 
-// Combat system class
+/**
+ * Handles combat interactions between player and monsters.
+ */
 export class CombatSystem {
     private scene: Scene;
     private playerSystem: PlayerSystem;
+    private skillEffectSystem: SkillEffectSystem | null = null;
     private combatListeners: ((event: CombatEvent) => void)[] = [];
     
-    constructor(scene: Scene, playerSystem: PlayerSystem) {
+    constructor(scene: Scene) {
         this.scene = scene;
-        this.playerSystem = playerSystem;
+        
+        // Get player system
+        const sceneAny = this.scene as unknown as { playerSystem?: PlayerSystem };
+        this.playerSystem = sceneAny.playerSystem || new PlayerSystem(this.scene);
+        if (!sceneAny.playerSystem) {
+            sceneAny.playerSystem = this.playerSystem;
+        }
+        
+        // Get or create skill effect system
+        const sceneWithSkills = this.scene as unknown as { 
+            skillEffectSystem?: SkillEffectSystem;
+            skillManager?: unknown;
+        };
+        
+        if (sceneWithSkills.skillEffectSystem) {
+            this.skillEffectSystem = sceneWithSkills.skillEffectSystem;
+        } else if (sceneWithSkills.skillManager) {
+            this.skillEffectSystem = new SkillEffectSystem(
+                this.scene, 
+                sceneWithSkills.skillManager as any
+            );
+            sceneWithSkills.skillEffectSystem = this.skillEffectSystem;
+        }
     }
     
     /**
@@ -47,7 +73,8 @@ export class CombatSystem {
      */
     public damagePlayer(damageInfo: DamageInfo): void {
         // Get player stats
-        const stats = (this.scene as any).playerStats;
+        const sceneWithStats = this.scene as unknown as { playerStats?: Record<string, unknown> };
+        const stats = sceneWithStats.playerStats;
         if (!stats) {
             console.warn('Cannot damage player: playerStats not found');
             return;
@@ -61,11 +88,15 @@ export class CombatSystem {
         }
         
         // Calculate actual damage after defense
-        const defense = stats.defense || 0;
+        const defense = (stats.defense as number) || 0;
         let actualDamage = Math.max(1, damageInfo.amount - defense);
         
         // Apply damage type modifiers
-        actualDamage = this.applyDamageTypeModifiers(actualDamage, damageInfo.type, stats.resistances);
+        actualDamage = this.applyDamageTypeModifiers(
+            actualDamage, 
+            damageInfo.type, 
+            stats.resistances as Record<string, number> | undefined
+        );
         
         // Apply critical hit if applicable
         if (damageInfo.isCritical) {
@@ -73,8 +104,11 @@ export class CombatSystem {
         }
         
         // Get count of monsters currently attacking the player
-        const monsterSystem = (this.scene as any).monsterSystem;
-        let attackingMonsterCount = 1; // Default to 1
+        const sceneWithMonsters = this.scene as unknown as { 
+            monsterSystem?: { getAutoAttackingMonsters: () => unknown[] } 
+        };
+        const monsterSystem = sceneWithMonsters.monsterSystem;
+        let attackingMonsterCount = 1;
         
         if (monsterSystem) {
             // Count monsters that are currently auto-attacking
@@ -94,8 +128,17 @@ export class CombatSystem {
             }
         }
         
+        // Apply skill effects to incoming damage
+        if (this.skillEffectSystem) {
+            actualDamage = this.skillEffectSystem.modifyIncomingDamage(
+                actualDamage, 
+                damageInfo.type, 
+                damageInfo.source
+            );
+        }
+        
         // Reduce player health
-        stats.health = Math.max(0, stats.health - actualDamage);
+        stats.health = Math.max(0, (stats.health as number) - actualDamage);
         
         // Update health bar
         this.playerSystem.updateHealthBar();
@@ -115,7 +158,7 @@ export class CombatSystem {
         });
         
         // Check if player died
-        if (stats.health <= 0) {
+        if ((stats.health as number) <= 0) {
             this.handlePlayerDeath();
         }
     }
@@ -170,15 +213,34 @@ export class CombatSystem {
         }
         
         // Calculate critical hit chance
-        const isCritical = Math.random() < (stats.critChance || 0.05);
+        const critChance = stats.critChance || 0.05;
+        const isCritical = Math.random() < critChance;
         
-        return {
+        // Create the base damage info
+        const damageInfo: DamageInfo = {
             amount: damage,
             type: damageType,
             isCritical,
             source: this.playerSystem.player,
             sourceType: 'player'
         };
+        
+        // Apply skill effects to outgoing damage
+        if (this.skillEffectSystem) {
+            damageInfo.amount = this.skillEffectSystem.modifyOutgoingDamage(
+                damageInfo.amount, 
+                damageInfo.type, 
+                null // Will be set when we know the target
+            );
+            
+            // Apply critical damage multiplier if it's a critical hit
+            if (isCritical) {
+                const critMultiplier = stats.critDamageMultiplier || 1.5;
+                damageInfo.amount = Math.floor(damageInfo.amount * critMultiplier);
+            }
+        }
+        
+        return damageInfo;
     }
     
     /**
@@ -187,6 +249,15 @@ export class CombatSystem {
     public playerAttackMonster(monster: BaseMonster | Monster): void {
         // Calculate damage
         const damageInfo = this.calculatePlayerAttackDamage();
+        
+        // Apply skill effects specific to this target
+        if (this.skillEffectSystem) {
+            damageInfo.amount = this.skillEffectSystem.modifyOutgoingDamage(
+                damageInfo.amount, 
+                damageInfo.type, 
+                monster
+            );
+        }
         
         // Apply damage to monster
         this.damageMonster(monster, damageInfo);
@@ -206,6 +277,9 @@ export class CombatSystem {
         
         // Play attack animation
         this.playerSystem.player.anims.play('player-attack', true);
+        
+        // Check for cleave effect to hit additional targets
+        this.applyCleaveDamage(monster, damageInfo);
     }
     
     /**
@@ -318,5 +392,73 @@ export class CombatSystem {
         for (const listener of this.combatListeners) {
             listener(event);
         }
+    }
+    
+    /**
+     * Apply cleave damage to nearby monsters if the player has the cleave skill
+     */
+    private applyCleaveDamage(primaryTarget: BaseMonster | Monster, damageInfo: DamageInfo): void {
+        const stats = (this.scene as any).playerStats;
+        if (!stats || !stats.cleaveChance || !stats.cleaveTargets) {
+            return; // No cleave skill
+        }
+        
+        // Check if cleave triggers
+        if (Math.random() > stats.cleaveChance) {
+            return; // Cleave didn't trigger
+        }
+        
+        // Get nearby monsters
+        const monsterSystem = (this.scene as any).monsterSystem;
+        if (!monsterSystem) return;
+        
+        const nearbyMonsters = monsterSystem.getNearbyMonsters(
+            this.playerSystem.player.x,
+            this.playerSystem.player.y,
+            100 // Cleave range
+        );
+        
+        // Remove the primary target from the list
+        const otherMonsters = nearbyMonsters.filter(m => m !== primaryTarget);
+        
+        // Limit to the number of cleave targets
+        const cleaveTargets = otherMonsters.slice(0, stats.cleaveTargets - 1);
+        
+        // Apply reduced damage to cleave targets
+        const cleaveDamageInfo = { ...damageInfo };
+        cleaveDamageInfo.amount = Math.floor(damageInfo.amount * 0.7); // 70% damage to cleave targets
+        
+        for (const target of cleaveTargets) {
+            this.damageMonster(target, cleaveDamageInfo);
+            
+            // Show cleave text
+            this.showCleaveDamageText(target);
+        }
+    }
+    
+    /**
+     * Show cleave damage text
+     */
+    private showCleaveDamageText(target: BaseMonster | Monster): void {
+        const x = (target as any).x;
+        const y = (target as any).y - 20;
+        
+        const text = this.scene.add.text(x, y, 'CLEAVE!', {
+            fontFamily: 'Arial',
+            fontSize: '16px',
+            color: '#FF9900',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        text.setOrigin(0.5);
+        
+        // Animate the text
+        this.scene.tweens.add({
+            targets: text,
+            y: y - 30,
+            alpha: 0,
+            duration: 1000,
+            onComplete: () => text.destroy()
+        });
     }
 }

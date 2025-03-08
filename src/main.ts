@@ -4,11 +4,9 @@ import { GameOver } from './scenes/GameOver';
 import { MainMenu } from './scenes/MainMenu';
 import { Preloader } from './scenes/Preloader';
 import { MenuScene } from './scenes/MenuScene';
-import { InventoryScene } from './scenes/InventoryScene';
+// import { InventoryScene } from './scenes/InventoryScene'; // Removed - now using MedievalInventory component
 import { CharacterScene } from './scenes/CharacterScene';
 import { EquipmentDemoScene } from './scenes/EquipmentDemo';
-import { MedievalVitalsExample } from './ui/MedievalVitalsExample';
-import { InventoryDemoScene } from './systems/inventory/InventoryDemo';
 import { SkillsScene } from './scenes/SkillsScene';
 
 import { Game } from "phaser";
@@ -33,11 +31,8 @@ const config: Types.Core.GameConfig = {
         MainGame,
         GameOver,
         MenuScene,
-        InventoryScene,
         CharacterScene,
         EquipmentDemoScene,
-        MedievalVitalsExample,
-        InventoryDemoScene,
         SkillsScene
     ],
     physics: {

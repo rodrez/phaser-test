@@ -171,34 +171,39 @@ export class MapSystem {
         this.leafletMap = L.map(this.mapElement, {
             center: [this.mapCenterLat, this.mapCenterLon],
             zoom: this.mapZoom,
-            zoomControl: false, // Disable zoom controls
+            zoomControl: false, // Disable default zoom controls
             attributionControl: false, // Disable attribution
-            dragging: false, // Disable dragging
+            keyboard: false, // Disable keyboard navigation
+            dragging: false, // Disable map dragging
             touchZoom: false, // Disable touch zoom
-            doubleClickZoom: false, // Disable double click zoom
             scrollWheelZoom: false, // Disable scroll wheel zoom
+            doubleClickZoom: false, // Disable double click zoom
             boxZoom: false, // Disable box zoom
-            keyboard: false // Disable keyboard navigation
+            tap: false, // Disable tap handler
+            preferCanvas: true // Use canvas for rendering
         });
 
-        // Add OpenStreetMap tile layer
+        // Add a tile layer (using OpenStreetMap)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(this.leafletMap);
         
-        // Create a circle around your current location using Leaflet
+        // Add the navigation circle
         this.navigationCircle = L.circle([this.mapCenterLat, this.mapCenterLon], {
             radius: this.navigationRadius,
             color: '#000000', // Black border
             weight: 3, // Slightly thicker line
             opacity: 1.0, // Full opacity
             fillOpacity: 0.03, // Very slight fill for visibility
-            dashArray: '8, 6', // Adjusted dash pattern
+            dashArray: '8, 6', // Dashed line pattern
             className: 'navigation-radius-circle'
         }).addTo(this.leafletMap);
         
-        // Create a Phaser graphics object for the navigation circle as well
-        // This gives us a backup visualization method that should always be visible
+        // Emit an event to notify that the map is ready
+        this.scene.events.emit('map-ready');
+        
+        // Draw the navigation circle on the Phaser canvas as well
         this.navigationCircleGraphics = this.scene.add.graphics();
         this.navigationCircleGraphics.clear();
         
@@ -711,20 +716,40 @@ export class MapSystem {
                 offsetY
             });
             
-            // Convert screen position to projected coordinates
-            const centerPoint = this.leafletMap.latLngToContainerPoint(circleCenter);
-            const playerPoint = L.point(centerPoint.x + offsetX, centerPoint.y + offsetY);
-            const playerLatLng = this.leafletMap.containerPointToLatLng(playerPoint);
+            // Calculate the offset in map units
+            // We need to determine the scale factor between screen pixels and map units
+            // This is based on the current zoom level and map projection
+            
+            // Get the map's current bounds
+            const bounds = this.leafletMap.getBounds();
+            const northEast = bounds.getNorthEast();
+            const southWest = bounds.getSouthWest();
+            
+            // Calculate the map's width and height in degrees
+            const mapWidthInDegrees = northEast.lng - southWest.lng;
+            const mapHeightInDegrees = northEast.lat - southWest.lat;
+            
+            // Calculate the scale factor (degrees per pixel)
+            const scaleX = mapWidthInDegrees / screenWidth;
+            const scaleY = mapHeightInDegrees / screenHeight;
+            
+            // Calculate the offset in degrees
+            const offsetLng = offsetX * scaleX;
+            const offsetLat = -offsetY * scaleY; // Negative because screen Y increases downward
+            
+            // Apply the offset to the center coordinates
+            const playerLat = circleCenter.lat + offsetLat;
+            const playerLng = circleCenter.lng + offsetLng;
             
             // Ensure we have proper coordinate values
-            if (isNaN(playerLatLng.lat) || isNaN(playerLatLng.lng)) {
-                console.warn('Invalid coordinates calculated', playerLatLng);
+            if (isNaN(playerLat) || isNaN(playerLng)) {
+                console.warn('Invalid coordinates calculated', { playerLat, playerLng });
                 return this.getPlayerPosition(); // fallback to center
             }
             
             const result = {
-                lat: playerLatLng.lat,
-                lon: playerLatLng.lng
+                lat: playerLat,
+                lon: playerLng
             };
             
             console.log('Calculated player GPS position:', result);
@@ -812,6 +837,16 @@ export class MapSystem {
             const screenX = screenCenterX + offsetX;
             const screenY = screenCenterY + offsetY;
             
+            // Log the conversion for debugging
+            console.log('Geo to screen conversion:', {
+                input: { lat, lon },
+                mapCenter: { lat: mapCenter.lat, lng: mapCenter.lng },
+                centerPoint: { x: centerPoint.x, y: centerPoint.y },
+                targetPoint: { x: targetPoint.x, y: targetPoint.y },
+                offset: { x: offsetX, y: offsetY },
+                result: { x: screenX, y: screenY }
+            });
+            
             return { x: screenX, y: screenY };
         } catch (error) {
             console.error('Error converting geo to screen coordinates:', error);
@@ -847,6 +882,9 @@ export class MapSystem {
         // Force a resize/redraw of the map
         if (this.leafletMap) {
             this.leafletMap.invalidateSize();
+            
+            // After map is resized, update all flag positions
+            this.scene.events.emit('map-resized');
         }
     }
 } 
