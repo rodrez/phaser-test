@@ -1,69 +1,73 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css" />
     <title>Alternate Earth - Skills System</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #111;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: #fff;
-            font-family: Arial, sans-serif;
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #111;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: #fff;
+        font-family: Arial, sans-serif;
+      }
+
+      #game-container {
+        position: relative;
+        width: 1024px;
+        height: 768px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+      }
+
+      .loading h2 {
+        margin-bottom: 20px;
+        font-size: 24px;
+      }
+
+      .spinner {
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 5px solid #fff;
+        width: 50px;
+        height: 50px;
+        margin: 0 auto;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
-        
-        #game-container {
-            position: relative;
-            width: 1024px;
-            height: 768px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        100% {
+          transform: rotate(360deg);
         }
-        
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-        }
-        
-        .loading h2 {
-            margin-bottom: 20px;
-            font-size: 24px;
-        }
-        
-        .spinner {
-            border: 5px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 5px solid #fff;
-            width: 50px;
-            height: 50px;
-            margin: 0 auto;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="app">
-        <div id="game-container">
-            <!-- <div class="loading">
+      <div id="game-container">
+        <!-- <div class="loading">
                 <h2>Loading Alternate Earth</h2>
                 <div class="spinner"></div>
             </div> -->
-        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
-</body>
+  </body>
 </html>

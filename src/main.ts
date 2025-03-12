@@ -8,9 +8,13 @@ import { MenuScene } from './scenes/MenuScene';
 import { CharacterScene } from './scenes/CharacterScene';
 import { EquipmentDemoScene } from './scenes/EquipmentDemo';
 import { SkillsScene } from './scenes/SkillsScene';
+import { LoggerDemoScene } from './examples/LoggerDemo';
 
 import { Game } from "phaser";
 import type { Types } from "phaser";
+
+// Import CSS
+import './styles/position-test.css';
 
 //  Find out more information about the Game Config at:
 //  https://newdocs.phaser.io/docs/3.70.0/Phaser.Types.Core.GameConfig
@@ -33,7 +37,8 @@ const config: Types.Core.GameConfig = {
         MenuScene,
         CharacterScene,
         EquipmentDemoScene,
-        SkillsScene
+        SkillsScene,
+        LoggerDemoScene
     ],
     physics: {
         default: 'arcade',

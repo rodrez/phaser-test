@@ -1,0 +1,66 @@
+/* Position Test System Styles */
+
+/* Marker containers */
+.position-test-marker-container {
+    background: transparent !important;
+}
+
+/* Base marker style */
+.position-test-marker {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Calculated position marker (red) */
+.position-test-marker.calculated {
+    background-color: #ff0000;
+}
+
+/* Expected position marker (blue) */
+.position-test-marker.expected {
+    background-color: #0000ff;
+}
+
+/* Tooltip styles */
+.leaflet-tooltip.position-test-tooltip {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: 1px solid #444;
+    padding: 5px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 4px;
+}
+
+/* Debug overlay styles */
+.position-test-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 300px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Accuracy colors */
+.accuracy-excellent {
+    color: #00ff00;
+}
+
+.accuracy-good {
+    color: #ffff00;
+}
+
+.accuracy-moderate {
+    color: #ff9900;
+}
+
+.accuracy-poor {
+    color: #ff0000;
+} 

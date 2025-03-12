@@ -1,0 +1,131 @@
+/* Chat Inbox Styles */
+.chat-inbox-container {
+    font-family: 'Cinzel', serif;
+    color: #e0d0b0;
+    background: url('/assets/ui/parchment-bg.png') repeat;
+    background-color: rgba(30, 30, 30, 0.9);
+    border: 2px solid #8b7250;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+}
+
+.chat-inbox-header {
+    background: url('/assets/ui/header-bg.png') repeat-x;
+    background-color: rgba(50, 40, 30, 0.8);
+    border-bottom: 1px solid #8b7250;
+}
+
+.chat-inbox-message-list {
+    scrollbar-width: thin;
+    scrollbar-color: #8b7250 rgba(30, 30, 30, 0.5);
+}
+
+.chat-inbox-message-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-inbox-message-list::-webkit-scrollbar-track {
+    background: rgba(30, 30, 30, 0.5);
+    border-radius: 4px;
+}
+
+.chat-inbox-message-list::-webkit-scrollbar-thumb {
+    background-color: #8b7250;
+    border-radius: 4px;
+}
+
+.chat-inbox-message {
+    transition: background-color 0.2s ease;
+}
+
+.chat-inbox-message:hover {
+    background-color: rgba(70, 60, 50, 0.7) !important;
+}
+
+.chat-inbox-input-container {
+    background: url('/assets/ui/footer-bg.png') repeat-x;
+    background-color: rgba(50, 40, 30, 0.8);
+    border-top: 1px solid #8b7250;
+}
+
+.chat-inbox-input,
+.chat-inbox-whisper-input,
+.chat-inbox-channel-selector {
+    background-color: rgba(30, 30, 30, 0.8);
+    color: #e0d0b0;
+    border: 1px solid #8b7250;
+    border-radius: 4px;
+    transition: border-color 0.2s ease;
+}
+
+.chat-inbox-input:focus,
+.chat-inbox-whisper-input:focus,
+.chat-inbox-channel-selector:focus {
+    outline: none;
+    border-color: #c0a080;
+    box-shadow: 0 0 5px rgba(192, 160, 128, 0.5);
+}
+
+.chat-inbox-send {
+    background: linear-gradient(to bottom, #a08060, #8b7250);
+    color: #e0d0b0;
+    border: 1px solid #6b5230;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.chat-inbox-send:hover {
+    background: linear-gradient(to bottom, #b09070, #9b8260);
+}
+
+.chat-inbox-send:active {
+    background: linear-gradient(to bottom, #8b7250, #7b6240);
+}
+
+.chat-inbox-close {
+    background: none;
+    border: none;
+    color: #e0d0b0;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.chat-inbox-close:hover {
+    color: #ffffff;
+}
+
+/* Channel colors */
+.chat-inbox-message[data-channel="global"] {
+    border-left-color: #ffffff;
+}
+
+.chat-inbox-message[data-channel="local"] {
+    border-left-color: #aaffaa;
+}
+
+.chat-inbox-message[data-channel="party"] {
+    border-left-color: #aaaaff;
+}
+
+.chat-inbox-message[data-channel="guild"] {
+    border-left-color: #ffaaff;
+}
+
+.chat-inbox-message[data-channel="whisper"] {
+    border-left-color: #ffaaaa;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.chat-inbox-container {
+    animation: fadeIn 0.3s ease;
+}
+
+.chat-inbox-message {
+    animation: fadeIn 0.2s ease;
+} 
